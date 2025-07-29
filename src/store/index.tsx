@@ -12,6 +12,10 @@ import NoteModel from "../models/Note";
 import BookmarkModel from "../models/Bookmark";
 import HtmlBookModel from "../models/HtmlBook";
 import PluginModel from "../models/Plugin";
+import upload from "./reducers/uploadReducer";
+
+import user from "./reducers/userReducer";
+
 const rootReducer = combineReducers({
   book,
   manager,
@@ -20,6 +24,8 @@ const rootReducer = combineReducers({
   viewArea,
   sidebar,
   backupPage,
+  upload,
+  user,
 });
 const store = createStore(
   rootReducer,

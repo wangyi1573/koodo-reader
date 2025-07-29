@@ -22,6 +22,7 @@ import { Tooltip } from "react-tooltip";
 import { ConfigService } from "../../assets/lib/kookit-extra-browser.min";
 import emptyDark from "../../assets/images/empty-dark.svg";
 import emptyLight from "../../assets/images/empty-light.svg";
+import UploadBook from "../../components/uploadBook";
 class Manager extends React.Component<ManagerProps, ManagerState> {
   timer!: NodeJS.Timeout;
   constructor(props: ManagerProps) {
@@ -122,6 +123,7 @@ class Manager extends React.Component<ManagerProps, ManagerState> {
           ).style.zIndex = "50";
         }}
       >
+        <UploadBook />
         <Tooltip id="my-tooltip" style={{ zIndex: 25 }} />
         {!this.props.dragItem && (
           <div

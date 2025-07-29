@@ -9,8 +9,11 @@ import store from "./store";
 import Router from "./router/index";
 import StyleUtil from "./utils/reader/styleUtil";
 import { initSystemFont, initTheme } from "./utils/reader/launchUtil";
+import { DatabaseService } from "./services/databaseService";
+
 initTheme();
 initSystemFont();
+DatabaseService.initialize();
 ReactDOM.render(
   <Provider store={store}>
     <Router />

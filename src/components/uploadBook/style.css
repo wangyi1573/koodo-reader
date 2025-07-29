@@ -1,0 +1,29 @@
+.upload-container {
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  margin: 20px 0;
+}
+
+.upload-container input[type="file"] {
+  margin-bottom: 10px;
+}
+
+.upload-container button {
+  padding: 8px 16px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.upload-container button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+progress {
+  width: 100%;
+  margin-top: 10px;
+}
