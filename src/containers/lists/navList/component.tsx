@@ -76,7 +76,7 @@ class NavList extends React.Component<NavListProps, NavListState> {
     let colorType = color.split("-")[0];
     let colorIndex = parseInt(color.split("-")[1]);
     return colorType === "color"
-      ? { backgroundColor: colors[colorIndex] }
+      ? { backgroundColor: colors[colorIndex], color: "#000" }
       : {
           borderBottom: `2px solid ${lines[colorIndex]}`,
           display: "inline",
@@ -88,7 +88,7 @@ class NavList extends React.Component<NavListProps, NavListState> {
         ? this.props.bookmarks
         : this.props.currentTab === "notes"
         ? this.props.notes.filter((item) => item.notes !== "")
-        : this.props.digests) as any
+        : this.props.notes.filter((item) => item.notes === "")) as any
     ).filter((item: any) => {
       return item.bookKey === this.props.currentBook.key;
     });

@@ -6,7 +6,7 @@ import {
 } from "../../assets/lib/kookit-extra-browser.min";
 import i18n from "../../i18n";
 import { handleExitApp } from "./common";
-let readerRequest: ReaderRequest;
+let readerRequest: ReaderRequest | undefined;
 export const getTransStream = async (
   text: string,
   from: string,
@@ -39,18 +39,42 @@ export const getSummaryStream = async (
   );
   return result;
 };
+export const getAnswerStream = async (
+  text: string,
+  question: string,
+  history: any[],
+  mode: string,
+  onMessage: (result) => void
+) => {
+  let readerRequest = await getReaderRequest();
+  let result = await readerRequest.getAnswerFetch(
+    {
+      text,
+      question,
+      history,
+      mode,
+    },
+    onMessage
+  );
+  return result;
+};
 export const getDictionary = async (word: string, from: string, to: string) => {
   let readerRequest = await getReaderRequest();
-  let result = await readerRequest.getDictionary({ word, from, to });
-  if (result.code === 200) {
-    return result;
-  } else if (result.code === 401) {
+  let response = await readerRequest.getDictionary({ word, from, to });
+  if (response.code === 200) {
+    return response;
+  } else if (response.code === 401) {
     handleExitApp();
     return;
   } else {
-    toast.error(i18n.t("Fetch failed, error code") + ": " + result.msg);
+    toast.error(i18n.t("Fetch failed, error code") + ": " + response.msg);
+    if (response.code === 20004) {
+      toast(
+        i18n.t("Please login again to update your membership on this device")
+      );
+    }
   }
-  return result;
+  return response;
 };
 export const getReaderRequest = async () => {
   if (readerRequest) {
@@ -59,6 +83,9 @@ export const getReaderRequest = async () => {
   readerRequest = new ReaderRequest(TokenService, ConfigService);
   return readerRequest;
 };
+export const resetReaderRequest = () => {
+  readerRequest = undefined;
+};
 export const getDictText = async (word: string, from: string, to: string) => {
   let res = await getDictionary(word, from, to);
   if (res.code === 200 && res.data && res.data.length > 0) {
@@ -66,7 +93,7 @@ export const getDictText = async (word: string, from: string, to: string) => {
       `<p class="dict-word-type">[${i18n.t("Pronunciations")}]</p></p>` +
       (res.data[0].pronunciation ? res.data[0].pronunciation : "") +
       (res.data[0].audio &&
-        `<div class="audio-container"><audio controls class="audio-player" controlsList="nodownload noplaybackrate"><source src="${res.data[0].audio}" type="audio/mpeg"></audio></div>`) +
+        `<div class="audio-container"><audio controls preload="auto"    class="audio-player" controlsList="nodownload noplaybackrate"><source src="${res.data[0].audio}" type="audio/mpeg"></audio></div>`) +
       res.data[0].meaning
         .map((item) => {
           return (

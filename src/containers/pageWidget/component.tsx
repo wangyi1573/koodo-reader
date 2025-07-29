@@ -12,7 +12,6 @@ class Background extends React.Component<BackgroundProps, BackgroundState> {
       isSingle: this.props.readerMode !== "double",
       prevPage: 0,
       nextPage: 0,
-      scale: ConfigService.getReaderConfig("scale") || 1,
       isHideFooter: ConfigService.getReaderConfig("isHideFooter") === "yes",
       isHideHeader: ConfigService.getReaderConfig("isHideHeader") === "yes",
     };
@@ -42,6 +41,16 @@ class Background extends React.Component<BackgroundProps, BackgroundState> {
   };
   async handlePageNum(rendition) {
     let pageInfo = await rendition.getProgress();
+    if (
+      this.props.currentBook.format === "PDF" &&
+      ConfigService.getReaderConfig("isConvertPDF") !== "yes"
+    ) {
+      this.setState({
+        prevPage: pageInfo.currentPage,
+        nextPage: pageInfo.currentPage + 1,
+      });
+      return;
+    }
     this.setState({
       prevPage: this.state.isSingle
         ? pageInfo.currentPage
@@ -60,8 +69,14 @@ class Background extends React.Component<BackgroundProps, BackgroundState> {
           color: ConfigService.getReaderConfig("textColor")
             ? ConfigService.getReaderConfig("textColor")
             : "",
-          width: !this.props.isNavLocked ? "100%" : "calc(100% - 300px)",
+          width:
+            !this.props.isNavLocked && !this.props.isSettingLocked
+              ? "100%"
+              : this.props.isNavLocked && this.props.isSettingLocked
+              ? "calc(100% - 600px)"
+              : "calc(100% - 300px)",
           left: !this.props.isNavLocked ? "0" : "300px",
+          right: !this.props.isSettingLocked ? "0" : "300px",
           backgroundColor:
             ConfigService.getReaderConfig("isMergeWord") === "yes"
               ? "rgba(0,0,0,0)"
@@ -72,7 +87,7 @@ class Background extends React.Component<BackgroundProps, BackgroundState> {
                   ConfigService.getReaderConfig("isOSNight") === "yes")
               ? "rgba(44,47,49,1)"
               : "rgba(255,255,255,1)",
-          filter: `brightnessbrightness(${
+          filter: `brightness(${
             ConfigService.getReaderConfig("brightness") || 1
           }) invert(${
             ConfigService.getReaderConfig("isInvert") === "yes" ? 1 : 0

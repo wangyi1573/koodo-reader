@@ -30,9 +30,12 @@ class PopupBox extends React.Component<PopupBoxProps, PopupBoxStates> {
     this.props.handleOpenMenu(false);
     this.props.handleNoteKey("");
     this.props.handleMenuMode("");
-    let doc = getIframeDoc();
-    if (!doc) return;
-    doc.getSelection()?.empty();
+    let docs = getIframeDoc(this.props.currentBook.format);
+    for (let i = 0; i < docs.length; i++) {
+      let doc = docs[i];
+      if (!doc) continue;
+      doc.getSelection()?.empty();
+    }
   }
   render() {
     const PopupProps = {
@@ -43,7 +46,15 @@ class PopupBox extends React.Component<PopupBoxProps, PopupBoxStates> {
       <>
         <div
           className="popup-box-container"
-          style={{ marginLeft: this.props.isNavLocked ? 150 : 0 }}
+          style={{
+            marginLeft:
+              this.props.isNavLocked && !this.props.isSettingLocked
+                ? 150
+                : !this.props.isNavLocked && this.props.isSettingLocked
+                ? -150
+                : 0,
+            height: this.props.menuMode === "assistant" ? "400px" : "320px",
+          }}
         >
           {this.props.menuMode === "note" ? (
             <PopupNote {...PopupProps} />

@@ -5,7 +5,6 @@ import { RouteComponentProps } from "react-router";
 export interface ManagerProps extends RouteComponentProps<any> {
   books: BookModel[];
   notes: NoteModel[];
-  digests: NoteModel[];
   bookmarks: BookmarkModel[];
   isReading: boolean;
   mode: string;
@@ -14,16 +13,20 @@ export interface ManagerProps extends RouteComponentProps<any> {
   isOpenDeleteDialog: boolean;
   isDetailDialog: boolean;
   isOpenAddDialog: boolean;
+  isOpenImportDialog: boolean;
   isBookSort: boolean;
   isSortDisplay: boolean;
   isBackup: boolean;
   isSettingOpen: boolean;
+  isShowPopupNote: boolean;
   isAboutOpen: boolean;
   isShowLoading: boolean;
   isShowNew: boolean;
   isShowSupport: boolean;
   isAuthed: boolean;
   isOpenFeedbackDialog: boolean;
+  isOpenSortShelfDialog: boolean;
+  isOpenLocalFileDialog: boolean;
   dragItem: string;
   handleFetchBooks: () => void;
   handleFetchPlugins: () => void;
@@ -41,8 +44,12 @@ export interface ManagerProps extends RouteComponentProps<any> {
   handleNewDialog: (isShowNew: boolean) => void;
   handleShowSupport: (isShowSupport: boolean) => void;
   handleBackupDialog: (isBackup: boolean) => void;
+  handleLocalFileDialog: (isOpenLocalFileDialog: boolean) => void;
+  handleImportDialog: (isOpenImportDialog: boolean) => void;
   handleReadingState: (isReading: boolean) => void;
   handleSetting: (isSettingOpen: boolean) => void;
+  handleShowPopupNote: (isShowPopupNote: boolean) => void;
+  handleSortShelfDialog: (isOpenSortShelfDialog: boolean) => void;
   t: (title: string) => string;
 }
 

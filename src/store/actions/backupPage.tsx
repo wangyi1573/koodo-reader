@@ -6,6 +6,15 @@ import { handleExitApp } from "../../utils/request/common";
 export function handleBackupDialog(mode: boolean) {
   return { type: "HANDLE_BACKUP", payload: mode };
 }
+export function handleLocalFileDialog(isOpen: boolean) {
+  return { type: "HANDLE_LOCAL_FILE_DIALOG", payload: isOpen };
+}
+export function handleImportDialog(mode: boolean) {
+  return { type: "HANDLE_IMPORT_DIALOG", payload: mode };
+}
+export function handleSortShelfDialog(isOpen: boolean) {
+  return { type: "HANDLE_SORT_SHELF_DIALOG", payload: isOpen };
+}
 export function handleTokenDialog(mode: boolean) {
   return { type: "HANDLE_TOKEN_DIALOG", payload: mode };
 }
@@ -23,9 +32,9 @@ export function handleFetchDataSourceList() {
 }
 export function handleFetchLoginOptionList() {
   return async (dispatch: Dispatch) => {
-    let loginOptionList: string[] = [];
+    let loginOptionList: { email: string; provider: string }[] = [];
     let userRequest = await getUserRequest();
-    let response = await userRequest.getLogins();
+    let response = await userRequest.getLoginsV2();
     if (response.code === 200) {
       loginOptionList = response.data;
     } else if (response.code === 401) {

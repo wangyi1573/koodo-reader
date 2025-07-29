@@ -4,9 +4,11 @@ import Header from "../../containers/header";
 import DeleteDialog from "../../components/dialogs/deleteDialog";
 import EditDialog from "../../components/dialogs/editDialog";
 import AddDialog from "../../components/dialogs/addDialog";
-import SortDialog from "../../components/dialogs/sortDialog";
+import SortDialog from "../../components/dialogs/sortBookDialog";
 import AboutDialog from "../../components/dialogs/aboutDialog";
 import BackupDialog from "../../components/dialogs/backupDialog";
+import LocalFileDialog from "../../components/dialogs/localFileDialog";
+import ImportDialog from "../../components/dialogs/importDialog";
 import { ManagerProps, ManagerState } from "./interface";
 import { Trans } from "react-i18next";
 import SettingDialog from "../../components/dialogs/settingDialog";
@@ -22,7 +24,6 @@ import { Tooltip } from "react-tooltip";
 import { ConfigService } from "../../assets/lib/kookit-extra-browser.min";
 import emptyDark from "../../assets/images/empty-dark.svg";
 import emptyLight from "../../assets/images/empty-light.svg";
-import UploadBook from "../../components/uploadBook";
 class Manager extends React.Component<ManagerProps, ManagerState> {
   timer!: NodeJS.Timeout;
   constructor(props: ManagerProps) {
@@ -84,35 +85,10 @@ class Manager extends React.Component<ManagerProps, ManagerState> {
   };
   render() {
     let { books } = this.props;
-    if (isMobile && document.location.href.indexOf("192.168") === -1) {
-      return (
-        <>
-          <p className="waring-title">
-            <Trans>Warning</Trans>
-          </p>
-          <div className="mobile-warning">
-            <span>
-              <Trans>
-                For better user experince, please visit this site on a computer
-              </Trans>
-            </span>
-          </div>
-          <div>
-            <img
-              src={
-                ConfigService.getReaderConfig("appSkin") === "night" ||
-                (ConfigService.getReaderConfig("appSkin") === "system" &&
-                  ConfigService.getReaderConfig("isOSNight") === "yes")
-                  ? emptyDark
-                  : emptyLight
-              }
-              alt=""
-              className="waring-pic"
-            />
-          </div>
-        </>
-      );
-    }
+    const PopupProps = {
+      chapterDocIndex: 0,
+      chapter: "test",
+    };
     return (
       <div
         className="manager"
@@ -125,6 +101,18 @@ class Manager extends React.Component<ManagerProps, ManagerState> {
       >
         <UploadBook />
         <Tooltip id="my-tooltip" style={{ zIndex: 25 }} />
+        {this.props.isShowPopupNote && (
+          <div
+            className="popup-box-container"
+            style={{
+              marginLeft: 0,
+              height: "320px",
+            }}
+          >
+            <PopupNote {...PopupProps} />
+          </div>
+        )}
+
         {!this.props.dragItem && (
           <div
             className="drag-background"
@@ -139,6 +127,10 @@ class Manager extends React.Component<ManagerProps, ManagerState> {
                 this.props.handleShowSupport(false);
               }
               this.props.handleBackupDialog(false);
+              this.props.handleLocalFileDialog(false);
+              this.props.handleImportDialog(false);
+              this.props.handleShowPopupNote(false);
+              this.props.handleSortShelfDialog(false);
               this.props.handleSetting(false);
               this.props.handleFeedbackDialog(false);
               this.handleDrag(false);
@@ -147,11 +139,15 @@ class Manager extends React.Component<ManagerProps, ManagerState> {
               this.props.isSettingOpen ||
               this.props.isOpenFeedbackDialog ||
               this.props.isBackup ||
+              this.props.isOpenImportDialog ||
+              this.props.isOpenSortShelfDialog ||
               this.props.isShowNew ||
               this.props.isShowSupport ||
               this.props.isOpenDeleteDialog ||
               this.props.isOpenEditDialog ||
+              this.props.isOpenLocalFileDialog ||
               this.props.isDetailDialog ||
+              this.props.isShowPopupNote ||
               this.props.isOpenAddDialog ||
               this.props.isShowLoading ||
               this.state.isDrag
@@ -181,7 +177,10 @@ class Manager extends React.Component<ManagerProps, ManagerState> {
         {this.props.isSortDisplay && <SortDialog />}
         {this.props.isAboutOpen && <AboutDialog />}
         {this.props.isBackup && <BackupDialog />}
-        {this.props.isOpenFeedbackDialog && <FeedbackDialog />}{" "}
+        {this.props.isOpenLocalFileDialog && <LocalFileDialog />}
+        {this.props.isOpenImportDialog && <ImportDialog />}
+        {this.props.isOpenSortShelfDialog && <SortShelfDialog />}
+        {this.props.isOpenFeedbackDialog && <FeedbackDialog />}
         {this.props.isSettingOpen && <SettingDialog />}
         {this.props.isDetailDialog && <DetailDialog />}
         {(!books || books.length === 0) && this.state.totalBooks ? (

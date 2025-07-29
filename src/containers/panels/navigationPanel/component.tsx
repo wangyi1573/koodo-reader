@@ -25,10 +25,19 @@ class NavigationPanel extends React.Component<
       searchList: null,
       startIndex: 0,
       currentIndex: 0,
+      cover: "",
+      isCoverExist: false,
     };
   }
   handleNavSearchState = (state: string) => {
     this.setState({ searchState: state });
+    if (state === "searching") {
+      this.setState({
+        searchList: null,
+        startIndex: 0,
+        currentIndex: 0,
+      });
+    }
     if (state) {
       this.props.handleSearch(true);
     } else {
@@ -40,6 +49,16 @@ class NavigationPanel extends React.Component<
   handleSearchList = (searchList: any) => {
     this.setState({ searchList });
   };
+  async UNSAFE_componentWillReceiveProps(nextProps: NavigationPanelProps) {
+    if (nextProps.currentBook.key !== this.props.currentBook.key) {
+      let cover = await CoverUtil.getCover(nextProps.currentBook);
+      let isCoverExist = await CoverUtil.isCoverExist(nextProps.currentBook);
+      this.setState({
+        cover,
+        isCoverExist,
+      });
+    }
+  }
   componentDidMount() {
     this.props.handleFetchBookmarks();
   }
@@ -54,17 +73,6 @@ class NavigationPanel extends React.Component<
       !this.props.isNavLocked ? "yes" : "no"
     );
     BookUtil.reloadBooks();
-  };
-  renderBeforeSearch = () => {
-    if (this.state.searchState === "searching") {
-      return (
-        <div className="loading-animation search-animation">
-          <div className="loader"></div>
-        </div>
-      );
-    } else {
-      return null;
-    }
   };
   renderSearchList = () => {
     if (!this.state.searchList[0]) {
@@ -81,11 +89,11 @@ class NavigationPanel extends React.Component<
           ? this.state.searchList.length
           : this.state.currentIndex * 10 + 10
       )
-      .map((item: any, index: number) => {
+      .map((item: any) => {
         return (
           <li
             className="nav-search-list-item"
-            key={index}
+            key={item.text}
             onClick={async () => {
               let bookLocation = JSON.parse(item.cfi) || {};
               await this.props.htmlBook.rendition.goToPosition(
@@ -102,9 +110,9 @@ class NavigationPanel extends React.Component<
                   page: bookLocation.page,
                 })
               );
-              let style = "background: #f3a6a68c";
-              this.props.htmlBook.rendition.highlightNode(
-                bookLocation.text,
+              let style = "background: #f3a6a68c;";
+              this.props.htmlBook.rendition.highlightSearchNode(
+                bookLocation.keyword,
                 style
               );
             }}
@@ -168,11 +176,6 @@ class NavigationPanel extends React.Component<
             {i + startIndex + 1}
           </li>
         );
-      }
-      if (total - startIndex < 5) {
-        for (let i = 0; i < 6 - pageList.length; i++) {
-          pageList.push(<li className="nav-search-page-item">EOF</li>);
-        }
       }
     }
     return pageList;
@@ -250,12 +253,8 @@ class NavigationPanel extends React.Component<
                 }}
               ></span>
 
-              {CoverUtil.isCoverExist(this.props.currentBook) ? (
-                <img
-                  className="book-cover"
-                  src={CoverUtil.getCover(this.props.currentBook)}
-                  alt=""
-                />
+              {this.state.isCoverExist ? (
+                <img className="book-cover" src={this.state.cover} alt="" />
               ) : (
                 <div className="book-cover">
                   <EmptyCover
@@ -276,7 +275,8 @@ class NavigationPanel extends React.Component<
                 </Trans>
               </p>
               <span className="reading-duration">
-                <Trans>Reading time</Trans>: {Math.floor(this.props.time / 60)}
+                <Trans>Reading time</Trans>:{" "}
+                {Math.floor(this.props.totalDuration / 60)}
                 &nbsp; min
               </span>
               <div className="navigation-search-box">

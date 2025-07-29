@@ -11,6 +11,8 @@ import {
   officialDictList,
   officialTranList,
 } from "../../constants/settingList";
+import toast from "react-hot-toast";
+import i18n from "../../i18n";
 
 export function handleBooks(books: BookModel[]) {
   return { type: "HANDLE_BOOKS", payload: books };
@@ -39,12 +41,16 @@ export function handleSetting(isSettingOpen: boolean) {
 export function handleSettingMode(settingMode: string) {
   return { type: "HANDLE_SETTING_MODE", payload: settingMode };
 }
+export function handleShowPopupNote(isShowPopupNote: boolean) {
+  return { type: "HANDLE_SHOW_POPUP_NOTE", payload: isShowPopupNote };
+}
 export function handleSettingDrive(settingDrive: string) {
   return { type: "HANDLE_SETTING_DRIVE", payload: settingDrive };
 }
 export function handleAbout(isAboutOpen: boolean) {
   return { type: "HANDLE_ABOUT", payload: isAboutOpen };
 }
+
 export function handleViewMode(mode: string) {
   return { type: "HANDLE_VIEW_MODE", payload: mode };
 }
@@ -112,6 +118,10 @@ export function handleFetchUserInfo() {
     let userInfo: any = null;
     if (response.code === 200) {
       userInfo = response.data;
+      ConfigService.setReaderConfig(
+        "isEnableKoodoSync",
+        userInfo.is_enable_koodo_sync || "no"
+      );
     }
     if (
       userInfo &&

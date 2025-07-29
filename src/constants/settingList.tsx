@@ -32,6 +32,16 @@ export const generalSettingList = [
   },
   {
     isElectron: true,
+    title: "Windows always on top",
+    propName: "isAlwaysOnTop",
+  },
+  {
+    isElectron: true,
+    title: "Automatically launch on system startup",
+    propName: "isAutoLaunch",
+  },
+  {
+    isElectron: true,
     title: "Open book without adding it to library",
     desc: "When opening books in the file manager with Koodo, the opened books won't be added to the library",
     propName: "isPreventAdd",
@@ -66,14 +76,24 @@ export const appearanceSettingList = [
     title: "Don't crop book cover",
     propName: "isDisableCrop",
   },
+  {
+    isElectron: false,
+    title: "Disable pagination in book list",
+    propName: "isDisablePagination",
+  },
 ];
 export const syncSettingList = [
   {
     isElectron: false,
-    title:
-      "Don't automatically pre-cache books for mobile version after import",
-    desc: "Upon importing, books will be automatically pre-cached, enabling seamless access in the mobile version. However, this process may consume additional storage space and extend the import duration. You can still do it manually",
-    propName: "isDisableMobilePrecache",
+    title: "Disable automatic sync",
+    desc: "By default, Koodo Reader will automatically synchronize your data when you open the app and exit reading",
+    propName: "isDisableAutoSync",
+  },
+  {
+    isElectron: false,
+    title: "Enable Koodo Sync",
+    desc: "Enable this option to increase synchronization speed. Your reading progress, notes, highlights, bookmarks, and other reading-related data will be stored and synced via our cloud service, your books and covers will still be synced by your added data sources. Turning off this option will remove the above data from our cloud.",
+    propName: "isEnableKoodoSync",
   },
   {
     isElectron: false,
@@ -177,6 +197,7 @@ export const langList = [
   { label: "Tagalog", value: "tl" },
   { label: "Slovenščina", value: "sl" },
   { label: "Srpski", value: "sr" },
+  { label: "Українська", value: "uk" },
 ];
 
 export const searchList = [
@@ -200,55 +221,82 @@ export const readerSettingList = [
   {
     title: "Sliding animation",
     propName: "isSliding",
+    isPDF: true,
   },
-  //TODO: add this feature in the future
-  // {
-  //   title: "Turn on pure mode for PDF",
-  //   propName: "isPurePdf",
-  // },
+  {
+    title: "Render PDF from even page",
+    propName: "isStartFromEven",
+    isPDF: true,
+  },
   {
     title: "Text indentation",
     propName: "isIndent",
+    isPDF: false,
   },
   {
     title: "Bold",
     propName: "isBold",
+    isPDF: false,
   },
   {
     title: "Italic",
     propName: "isItalic",
+    isPDF: false,
   },
   {
     title: "Underline",
     propName: "isUnderline",
+    isPDF: false,
   },
   {
     title: "Shadow",
     propName: "isShadow",
+    isPDF: false,
   },
   {
     title: "Invert color",
     propName: "isInvert",
+    isPDF: true,
   },
   {
     title: "Hide footer",
     propName: "isHideFooter",
+    isPDF: true,
   },
   {
     title: "Hide header",
     propName: "isHideHeader",
+    isPDF: true,
   },
   {
     title: "Hide mimical background",
     propName: "isHideBackground",
+    isPDF: true,
   },
   {
     title: "Hide navigation button",
     propName: "isHidePageButton",
+    isPDF: true,
   },
   {
     title: "Hide menu button",
     propName: "isHideMenuButton",
+    isPDF: true,
+  },
+  {
+    title: "Hide AI button",
+    propName: "isHideAIButton",
+    isPDF: true,
+  },
+  {
+    title: "Hide page scale button",
+    propName: "isHideScaleButton",
+    isPDF: true,
+  },
+  {
+    title: "Hide pdf to text button",
+    propName: "isHidePDFConvertButton",
+    isPDF: true,
   },
 ];
 export const officialTranList = {
@@ -263,6 +311,38 @@ export const officialTranList = {
   Italian: "Italian",
   Russian: "Russian",
   Portuguese: "Portuguese",
+  Arabic: "Arabic",
+  Bengali: "Bengali",
+  Bulgarian: "Bulgarian",
+  Croatian: "Croatian",
+  Czech: "Czech",
+  Danish: "Danish",
+  Dutch: "Dutch",
+  Finnish: "Finnish",
+  Greek: "Greek",
+  Hebrew: "Hebrew",
+  Hindi: "Hindi",
+  Hungarian: "Hungarian",
+  Icelandic: "Icelandic",
+  Indonesian: "Indonesian",
+  Kannada: "Kannada",
+  Latvian: "Latvian",
+  Lithuanian: "Lithuanian",
+  Malay: "Malay",
+  Marathi: "Marathi",
+  Norwegian: "Norwegian",
+  Polish: "Polish",
+  Romanian: "Romanian",
+  Serbian: "Serbian",
+  Slovak: "Slovak",
+  Slovenian: "Slovenian",
+  Swedish: "Swedish",
+  Tamil: "Tamil",
+  Telugu: "Telugu",
+  Thai: "Thai",
+  Turkish: "Turkish",
+  Ukrainian: "Ukrainian",
+  Vietnamese: "Vietnamese",
 };
 export const officialDictList = [
   { lang: "English", code: "eng", nativeLang: "English" },
@@ -284,5 +364,23 @@ export const officialDictList = [
     lang: "Classical Chinese",
     code: "ancient",
     nativeLang: "Classical Chinese",
+  },
+];
+export const sampleQuestion = [
+  {
+    mode: "ask",
+    question: "Summarize this chapter for me",
+  },
+  {
+    mode: "ask",
+    question: "What are the key points of this chapter",
+  },
+  {
+    mode: "chat",
+    question: "Recommend me some books from Colleen Hoover",
+  },
+  {
+    mode: "chat",
+    question: "Explain Stoicism and its principles to me",
   },
 ];

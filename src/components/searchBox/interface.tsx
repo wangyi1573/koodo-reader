@@ -10,7 +10,6 @@ export interface SearchBoxProps {
   mode: string;
   tabMode: string;
   notes: NoteModel[];
-  digests: NoteModel[];
   width: string;
   height: string;
   currentBook: any;
@@ -21,4 +20,7 @@ export interface SearchBoxProps {
   handleNavSearchState: (state: string) => void;
   handleSearchList: (searchList: any) => void;
   t: any;
+}
+export interface SearchBoxState {
+  isFocused: boolean;
 }

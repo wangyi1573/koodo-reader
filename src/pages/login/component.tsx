@@ -1,13 +1,13 @@
 import React from "react";
 import { LoginProps, LoginState } from "./interface";
 import { Trans } from "react-i18next";
-import { getLoginParamsFromUrl } from "../../utils/file/common";
+import { getLoginParamsFromUrl, upgradePro } from "../../utils/file/common";
 import { withRouter } from "react-router-dom";
 import toast, { Toaster } from "react-hot-toast";
 import { loginList } from "../../constants/loginList";
 import {
   handleContextMenu,
-  openExternalUrl,
+  openInBrowser,
   removeSearchParams,
 } from "../../utils/common";
 import {
@@ -17,9 +17,15 @@ import {
 } from "../../assets/lib/kookit-extra-browser.min";
 import { isElectron } from "react-device-detect";
 import { driveList } from "../../constants/driveList";
-import { getUserRequest, loginRegister } from "../../utils/request/user";
+import {
+  getUserRequest,
+  loginRegister,
+  resetUserRequest,
+} from "../../utils/request/user";
 import SettingDialog from "../../components/dialogs/settingDialog";
 import LoadingDialog from "../../components/dialogs/loadingDialog";
+import { resetReaderRequest } from "../../utils/request/reader";
+import { resetThirdpartyRequest } from "../../utils/request/thirdparty";
 
 class Login extends React.Component<LoginProps, LoginState> {
   constructor(props: LoginProps) {
@@ -29,6 +35,7 @@ class Login extends React.Component<LoginProps, LoginState> {
       loginConfig: {},
       countdown: 0,
       isSendingCode: false,
+      serverRegion: ConfigService.getItem("serverRegion") || "global",
     };
   }
 
@@ -58,6 +65,21 @@ class Login extends React.Component<LoginProps, LoginState> {
       }
     }
   }
+  UNSAFE_componentWillReceiveProps(
+    nextProps: Readonly<LoginProps>,
+    nextContext: any
+  ): void {
+    if (
+      nextProps.isShowSupport &&
+      nextProps.isShowSupport !== this.props.isShowSupport
+    ) {
+      toast(
+        this.props.t(
+          "Your Pro trial has expired, please renew it to continue using the Pro features"
+        )
+      );
+    }
+  }
   handleLogin = async (code: string, service: string) => {
     this.props.handleLoadingDialog(true);
     let res = await loginRegister(service, code);
@@ -70,11 +92,30 @@ class Login extends React.Component<LoginProps, LoginState> {
       this.props.handleFetchDefaultSyncOption();
       removeSearchParams();
       this.props.handleFetchAuthed();
+      await this.props.handleFetchUserInfo();
       this.setState({ currentStep: 3 });
+      if (ConfigService.getReaderConfig("isProUpgraded") !== "yes") {
+        try {
+          ConfigService.setReaderConfig("isProUpgraded", "yes");
+          await upgradePro();
+        } catch (error) {
+          console.error(error);
+        }
+      }
     } else {
       this.props.handleLoadingDialog(false);
+      if (service === "email") {
+        toast(this.props.t("Please make sure the email and code are correct"));
+      }
       toast.error(this.props.t("Login failed, error code") + ": " + res.msg);
     }
+  };
+  handleServerRegionChange = (region: string) => {
+    ConfigService.setItem("serverRegion", region);
+    this.setState({ serverRegion: region });
+    resetReaderRequest();
+    resetUserRequest();
+    resetThirdpartyRequest();
   };
 
   render() {
@@ -256,7 +297,7 @@ class Login extends React.Component<LoginProps, LoginState> {
             <div className="login-content-container">
               <div
                 className="login-title"
-                style={{ marginTop: "80px", marginBottom: "50px" }}
+                style={{ marginTop: "80px", marginBottom: "30px" }}
               >
                 {this.props.t(
                   "Embark on your journey of exploration with Koodo Reader Pro"
@@ -264,44 +305,90 @@ class Login extends React.Component<LoginProps, LoginState> {
               </div>
               <div className="login-option-box">
                 <div>
-                  {loginList.map((item) => {
-                    return (
-                      <div
-                        className="login-option-container"
-                        key={item.value}
-                        style={{}}
+                  <div className="login-region-container">
+                    <div className="login-region-title">
+                      {this.props.t("Server region")}
+                    </div>
+                    <div>
+                      <span
                         onClick={() => {
-                          if (item.value === "email") {
-                            this.setState({ currentStep: 5 });
-                            return;
-                          }
-                          let url = LoginHelper.getAuthUrl(
-                            item.value,
-                            isElectron ? "desktop" : "browser"
-                          );
-                          if (url) {
-                            if (isElectron) {
-                              openExternalUrl(url);
-                            } else {
-                              window.location.replace(url);
-                            }
-                          }
+                          this.handleServerRegionChange("global");
                         }}
+                        style={
+                          this.state.serverRegion === "global"
+                            ? { textDecoration: "underline" }
+                            : {}
+                        }
                       >
-                        <div className="login-option-icon">
-                          <span
-                            className={item.icon + " login-option-icon"}
-                            style={{ fontSize: item.fontsize }}
-                          ></span>
+                        {this.props.t("Global")}
+                      </span>
+                      <span>{" | "}</span>
+                      <span
+                        onClick={() => {
+                          this.handleServerRegionChange("china");
+
+                          toast(
+                            this.props.t(
+                              "Some login options and data sources are not available in your selected server region"
+                            )
+                          );
+                        }}
+                        style={
+                          this.state.serverRegion === "china"
+                            ? { textDecoration: "underline" }
+                            : {}
+                        }
+                      >
+                        {this.props.t("China")}
+                      </span>
+                    </div>
+                  </div>
+                  {loginList
+                    .filter((item) => {
+                      if (this.state.serverRegion === "china") {
+                        return item.isCNAvailable;
+                      }
+                      return true;
+                    })
+                    .map((item) => {
+                      return (
+                        <div
+                          className="login-option-container"
+                          key={item.value}
+                          style={{}}
+                          onClick={() => {
+                            if (item.value === "email") {
+                              this.setState({ currentStep: 5 });
+                              return;
+                            }
+                            let url = LoginHelper.getAuthUrl(
+                              item.value,
+                              isElectron ? "desktop" : "browser"
+                            );
+                            if (url) {
+                              if (isElectron) {
+                                openInBrowser(url);
+                              } else {
+                                window.location.replace(url);
+                              }
+                            }
+                          }}
+                        >
+                          <div className="login-option-icon">
+                            <span
+                              className={item.icon + " login-option-icon"}
+                              style={{ fontSize: item.fontsize }}
+                            ></span>
+                          </div>
+                          <div className="login-option-title">
+                            <Trans i18nKey="Continue with" label={item.label}>
+                              Continue with{" "}
+                              {{ label: this.props.t(item.label) }}
+                            </Trans>
+                          </div>
                         </div>
-                        <div className="login-option-title">
-                          <Trans i18nKey="Continue with" label={item.label}>
-                            Continue with {{ label: this.props.t(item.label) }}
-                          </Trans>
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                   <div
                     className="login-manual-token"
                     onClick={() => {
@@ -358,50 +445,73 @@ class Login extends React.Component<LoginProps, LoginState> {
                 )}
               </div>
               <div className="login-sync-container">
-                {driveList.map((item) => {
-                  return (
-                    <div
-                      className="login-sync-box"
-                      key={item.value}
-                      style={{}}
-                      onClick={() => {
-                        this.props.handleSetting(true);
-                        this.props.handleSettingMode("sync");
-                        this.props.handleSettingDrive(item.value);
-                      }}
-                    >
-                      <div className="login-sync-title">
-                        {this.props.t(item.label)}
-                      </div>
-                      <div className="login-sync-icon-container">
-                        <span className={"icon-add login-sync-icon"}></span>
-                      </div>
-                      {ConfigService.getReaderConfig("lang") &&
-                        ConfigService.getReaderConfig("lang").startsWith(
-                          "zh"
-                        ) &&
-                        item.value === "webdav" && (
-                          <div className="login-sync-text">
-                            {this.props.t("Recommended (use with Nutstore)")}
+                {driveList
+                  .filter((item) => {
+                    if (ConfigService.getItem("serverRegion") === "china") {
+                      return item.isCNAvailable;
+                    }
+                    return true;
+                  })
+                  .filter((item) => {
+                    if (!isElectron) {
+                      return item.support.includes("browser");
+                    } else {
+                      return true;
+                    }
+                  })
+                  .map((item) => {
+                    return (
+                      <div
+                        className="login-sync-box"
+                        key={item.value}
+                        style={{}}
+                        onClick={() => {
+                          this.props.handleSetting(true);
+                          this.props.handleSettingMode("sync");
+                          this.props.handleSettingDrive(item.value);
+                        }}
+                      >
+                        <div className="login-sync-title">
+                          {this.props.t(item.label)}
+                        </div>
+                        <div className="login-sync-icon-container">
+                          <span className={"icon-add login-sync-icon"}></span>
+                        </div>
+                        {ConfigService.getReaderConfig("lang") &&
+                          ConfigService.getReaderConfig("lang").startsWith(
+                            "zh"
+                          ) &&
+                          item.value === "webdav" && (
+                            <div className="login-sync-text">
+                              {this.props.t("Recommended (use with Nutstore)")}
+                            </div>
+                          )}
+                        {ConfigService.getReaderConfig("lang") &&
+                          ConfigService.getReaderConfig("lang").startsWith(
+                            "zh"
+                          ) &&
+                          item.value === "microsoft" && (
+                            <div className="login-sync-text">
+                              {this.props.t("Access may be unstable in China")}
+                            </div>
+                          )}
+                        <div className="login-sync-subtitle">
+                          <div>
+                            {item.support.map((support) => {
+                              return (
+                                <span
+                                  key={support}
+                                  className={
+                                    "icon-" + support + " login-sync-support"
+                                  }
+                                ></span>
+                              );
+                            })}
                           </div>
-                        )}
-                      <div className="login-sync-subtitle">
-                        <div>
-                          {item.support.map((support) => {
-                            return (
-                              <span
-                                key={support}
-                                className={
-                                  "icon-" + support + " login-sync-support"
-                                }
-                              ></span>
-                            );
-                          })}
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
               <div
                 className="login-next-button"
@@ -413,6 +523,7 @@ class Login extends React.Component<LoginProps, LoginState> {
                 style={{
                   borderWidth: "0px",
                   right: "0px",
+                  // bottom: "10px",
                 }}
               >
                 {this.props.t("Skip")}
@@ -572,16 +683,6 @@ class Login extends React.Component<LoginProps, LoginState> {
                         if (this.state.isSendingCode || this.state.countdown) {
                           return;
                         }
-                        if (
-                          !CommonTool.EmailProviders.includes(
-                            this.state.loginConfig.email.split("@")[1]
-                          )
-                        ) {
-                          toast.error(
-                            this.props.t("Unsupported email provider")
-                          );
-                          return;
-                        }
                         this.setState({ isSendingCode: true });
                         toast.loading(this.props.t("Sending"), {
                           id: "send-email-code",
@@ -589,11 +690,20 @@ class Login extends React.Component<LoginProps, LoginState> {
                         let userRequest = await getUserRequest();
                         let response = await userRequest.sendEmailCode({
                           email: this.state.loginConfig.email,
+                          lang: ConfigService.getReaderConfig("lang"),
                         });
                         if (response.code === 200) {
                           toast.success(this.props.t("Send successfully"), {
                             id: "send-email-code",
                           });
+                          toast(
+                            this.props.t(
+                              "If you didn't receive the verification code, please check the spam folder or use another email provider"
+                            ),
+                            {
+                              duration: 6000,
+                            }
+                          );
                           this.setState({ isSendingCode: false });
                           let countdown = 60;
                           let timer = setInterval(() => {
@@ -658,15 +768,26 @@ class Login extends React.Component<LoginProps, LoginState> {
                   >
                     {this.props.t("Log in")}
                   </div>
-                  {/* <div className="login-term" style={{ opacity: 0.8 }}>
-                    {this.props.t(
-                      "Due to the limited number of emails we can send each day, to prevent login issues after reaching the sending limit, please make sure to add additional login options as backups after logging in."
-                    )}
-                  </div> */}
                   <div className="login-term">
-                    {this.props.t("Supported email providers")}
+                    {this.props.t(
+                      "7-days free trial only applys to users who registered with recommended email providers. Recommended email providers are as follows"
+                    )}
                     <br />
                     {CommonTool.EmailProviders.join(", ")}
+                  </div>
+                  <div
+                    className="login-next-button"
+                    onClick={() => {
+                      this.setState({
+                        currentStep: 2,
+                      });
+                    }}
+                    style={{
+                      borderWidth: "0px",
+                      right: "0px",
+                    }}
+                  >
+                    {this.props.t("Back")}
                   </div>
                 </div>
               </div>

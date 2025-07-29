@@ -7,11 +7,13 @@ const initState = {
   searchResults: [],
   isSearch: false,
   isOpenFeedbackDialog: false,
+  isShowPopupNote: false,
   isAboutOpen: false,
   isBookSort: ConfigService.getReaderConfig("bookSortCode") ? true : false,
   isNoteSort: false,
   isAuthed: false,
   userInfo: null,
+  userConfig: null,
   isSettingOpen: false,
   viewMode: "card",
   isSortDisplay: false,
@@ -48,15 +50,26 @@ export function manager(
         ...state,
         deletedBooks: action.payload,
       };
+    case "HANDLE_SHOW_POPUP_NOTE":
+      return {
+        ...state,
+        isShowPopupNote: action.payload,
+      };
     case "HANDLE_FEEDBACK_DIALOG":
       return {
         ...state,
         isOpenFeedbackDialog: action.payload,
       };
+
     case "HANDLE_USER_INFO":
       return {
         ...state,
         userInfo: action.payload,
+      };
+    case "HANDLE_USER_CONFIG":
+      return {
+        ...state,
+        userConfig: action.payload,
       };
     case "HANDLE_SETTING_MODE":
       return {

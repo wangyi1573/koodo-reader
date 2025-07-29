@@ -18,7 +18,7 @@
   cursor: pointer;
 }
 .login-logo-img {
-  width: 120px;
+  width: 100px;
   position: absolute;
   top: 30px;
   left: 30px;
@@ -46,6 +46,7 @@
 .login-close-icon {
   font-size: 25px;
   opacity: 0.5;
+  color: rgba(75, 75, 75, 1);
 }
 .login-content-illustration {
   width: 100px;
@@ -106,6 +107,17 @@
   cursor: pointer;
   position: relative;
 }
+.login-region-container {
+  margin: 0px 0px;
+  width: 260px;
+  margin-left: calc(50% - 130px);
+  height: 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+}
 .login-input-container {
   margin: 15px 0px;
   width: 260px;
@@ -142,6 +154,7 @@
 }
 .login-sync-text {
   font-size: 12px;
+  line-height: 1.25;
   color: #585858;
   font-weight: bold;
   text-align: left;
@@ -150,8 +163,10 @@
 }
 .login-sync-container {
   width: 90%;
-  height: 50%;
+  height: 58%;
+  overflow-y: scroll;
   margin: 0 auto;
+  margin-top: -20px;
   /*实现三乘三的布局*/
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;

@@ -13,13 +13,20 @@ import { getIframeDoc } from "../../utils/reader/docUtil";
 import PopupBox from "../../components/popups/popupBox";
 import Note from "../../models/Note";
 import PageWidget from "../pageWidget";
-import { getPageWidth, scrollContents } from "../../utils/common";
+import {
+  getPageWidth,
+  getPdfPassword,
+  scrollContents,
+  showDownloadProgress,
+} from "../../utils/common";
 import _ from "underscore";
 import {
   BookHelper,
   ConfigService,
 } from "../../assets/lib/kookit-extra-browser.min";
 import * as Kookit from "../../assets/lib/kookit.min";
+import PopupRefer from "../../components/popups/popupRefer";
+import { ocrLangList } from "../../constants/dropdownList";
 declare var window: any;
 let lock = false; //prevent from clicking too fasts
 
@@ -33,7 +40,7 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       rect: null,
       key: "",
       isFirst: true,
-      scale: ConfigService.getReaderConfig("scale") || 1,
+      scale: ConfigService.getReaderConfig("scale") || "1",
       chapterTitle:
         ConfigService.getObjectConfig(
           this.props.currentBook.key,
@@ -72,7 +79,8 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
         this.props.readerMode,
         this.state.scale,
         this.state.margin,
-        this.props.isNavLocked
+        this.props.isNavLocked,
+        this.props.isSettingLocked
       )
     );
     this.props.handleRenderBookFunc(this.handleRenderBook);
@@ -108,6 +116,24 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       highlightersByChapter,
       this.handleNoteClick
     );
+    if (
+      this.props.currentBook.format === "PDF" &&
+      (this.props.readerMode === "double" ||
+        this.props.readerMode === "scroll") &&
+      ConfigService.getReaderConfig("isConvertPDF") !== "yes"
+    ) {
+      let highlightersByChapter = highlighters.filter((item: Note) => {
+        if (item.bookKey !== this.props.currentBook.key) {
+          return false;
+        }
+
+        return item.chapterIndex === this.state.chapterDocIndex + 1;
+      });
+      await this.props.htmlBook.rendition.renderHighlighters(
+        highlightersByChapter,
+        this.handleNoteClick
+      );
+    }
   };
   handleNoteClick = (event: Event) => {
     this.props.handleNoteKey((event.target as any).dataset.key);
@@ -118,8 +144,7 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
     if (lock) return;
     let { key, path, format, name } = this.props.currentBook;
     this.props.handleHtmlBook(null);
-    let doc = getIframeDoc();
-    if (doc && this.state.rendition) {
+    if (this.state.rendition) {
       this.state.rendition.removeContent();
     }
     let isCacheExsit = await BookUtil.isBookExist("cache-" + key, "zip", path);
@@ -131,15 +156,22 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
     ).then(async (result: any) => {
       if (!result) {
         if (this.props.defaultSyncOption) {
+          let timer = showDownloadProgress(
+            this.props.defaultSyncOption,
+            "cloud",
+            this.props.currentBook.size
+          );
           let result = await BookUtil.downloadBook(key, format.toLowerCase());
+          clearInterval(timer);
+          toast.dismiss("offline-book");
           if (result) {
-            toast.success(this.props.t("Offline successful"));
+            toast.success(this.props.t("Download successful"));
           } else {
             result = await BookUtil.downloadCacheBook(key);
             if (result) {
-              toast.success(this.props.t("Offline successful"));
+              toast.success(this.props.t("Download successful"));
             } else {
-              toast.error(this.props.t("Offline failed"));
+              toast.error(this.props.t("Download failed"));
               return;
             }
           }
@@ -149,18 +181,60 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
         }
       }
 
-      let rendition = BookHelper.getRendtion(
+      let rendition = BookHelper.getRendition(
         result,
-        isCacheExsit ? "CACHE" : format,
-        this.props.readerMode,
-        this.props.currentBook.charset,
-        ConfigService.getReaderConfig("isSliding") === "yes" ? "sliding" : "",
-        ConfigService.getReaderConfig("convertChinese"),
-        "",
+        {
+          format: isCacheExsit ? "CACHE" : format,
+          readerMode: this.props.readerMode,
+          charset: this.props.currentBook.charset,
+          animation:
+            ConfigService.getReaderConfig("isSliding") === "yes"
+              ? "sliding"
+              : "",
+          convertChinese: ConfigService.getReaderConfig("convertChinese"),
+          parserRegex: "",
+          isDarkMode:
+            ConfigService.getReaderConfig("backgroundColor") ===
+            "rgba(44,47,49,1)"
+              ? "yes"
+              : "no",
+          backgroundColor: ConfigService.getReaderConfig("backgroundColor"),
+          isMobile: "no",
+          isStartFromEven: ConfigService.getReaderConfig("isStartFromEven"),
+          password: getPdfPassword(this.props.currentBook),
+          scale: parseFloat(this.state.scale),
+          isConvertPDF: ConfigService.getReaderConfig("isConvertPDF"),
+          ocrLang: ConfigService.getReaderConfig("ocrLang")
+            ? ConfigService.getReaderConfig("ocrLang")
+            : ocrLangList.find(
+                (item) => item.lang === ConfigService.getReaderConfig("lang")
+              )?.value || "chi_sim",
+          ocrEngine: ConfigService.getReaderConfig("ocrEngine") || "tesseract",
+          paraSpacingValue:
+            ConfigService.getReaderConfig("paraSpacingValue") || "1.5",
+          titleSizeValue:
+            ConfigService.getReaderConfig("titleSizeValue") || "1.2",
+          isScannedPDF:
+            this.props.currentBook.description.indexOf("scanned PDF") > -1
+              ? "yes"
+              : "no",
+        },
         Kookit
       );
+      if (this.props.currentBook.format === "TXT") {
+        let bookLocation = ConfigService.getObjectConfig(
+          this.props.currentBook.key,
+          "recordLocation",
+          {}
+        );
+        await rendition.renderTo(
+          document.getElementById("page-area"),
+          bookLocation
+        );
+      } else {
+        await rendition.renderTo(document.getElementById("page-area"));
+      }
 
-      await rendition.renderTo(document.getElementById("page-area"));
       await this.handleRest(rendition);
       this.props.handleReadingState(true);
 
@@ -173,7 +247,8 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
     HtmlMouseEvent(
       rendition,
       this.props.currentBook.key,
-      this.props.readerMode
+      this.props.readerMode,
+      this.props.currentBook.format
     );
     let chapters = rendition.getChapter();
     let chapterDocs = rendition.getChapterDoc();
@@ -187,7 +262,7 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
     this.setState({ rendition });
 
     StyleUtil.addDefaultCss();
-    rendition.tsTransform();
+    rendition.tranformText();
     // rendition.setStyle(StyleUtil.getCustomCss());
     let bookLocation: {
       text: string;
@@ -219,6 +294,22 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
           isFirst: true,
         })
       );
+    }
+    if (
+      this.props.currentBook.format === "TXT" &&
+      rendition.format !== "CACHE"
+    ) {
+      setTimeout(async () => {
+        await rendition.refreshContent();
+        let chapters = rendition.getChapter();
+        let flattenChapters = rendition.flatChapter(chapters);
+        this.props.handleHtmlBook({
+          key: this.props.currentBook.key,
+          chapters,
+          flattenChapters,
+          rendition: rendition,
+        });
+      }, 1000);
     }
 
     rendition.on("rendered", async () => {
@@ -259,14 +350,14 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
       }
       this.props.handleCurrentChapter(chapter);
       this.props.handleCurrentChapterIndex(chapterDocIndex);
-      this.props.handleFetchPercentage(this.props.currentBook);
+
       this.setState({
         chapter,
         chapterDocIndex,
       });
       scrollContents(chapter, bookLocation.chapterHref);
       StyleUtil.addDefaultCss();
-      rendition.tsTransform();
+      rendition.tranformText();
       this.handleBindGesture();
       await this.handleHighlight(rendition);
       lock = true;
@@ -289,46 +380,73 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
     );
   };
   handleBindGesture = () => {
-    let doc = getIframeDoc();
-    if (!doc) return;
-    doc.addEventListener("click", () => {
-      this.props.handleLeaveReader("left");
-      this.props.handleLeaveReader("right");
-      this.props.handleLeaveReader("top");
-      this.props.handleLeaveReader("bottom");
-    });
-    doc.addEventListener("mouseup", () => {
-      if (this.state.isDisablePopup) {
-        if (doc!.getSelection()!.toString().trim().length === 0) {
-          let rect = doc!.getSelection()!.getRangeAt(0).getBoundingClientRect();
-          this.setState({ rect });
+    let docs = getIframeDoc(this.props.currentBook.format);
+    for (let i = 0; i < docs.length; i++) {
+      let doc = docs[i];
+      if (!doc) continue;
+      doc.addEventListener("click", () => {
+        this.props.handleLeaveReader("left");
+        this.props.handleLeaveReader("right");
+        this.props.handleLeaveReader("top");
+        this.props.handleLeaveReader("bottom");
+      });
+      doc.addEventListener("mouseup", (event) => {
+        if (
+          this.props.currentBook.format === "PDF" &&
+          ConfigService.getReaderConfig("isConvertPDF") !== "yes"
+        ) {
+          let ownerDoc = (event.target as HTMLElement).ownerDocument;
+          let targetIframe = ownerDoc?.defaultView?.frameElement;
+          let id = targetIframe?.getAttribute("id") || "";
+          let chapterDocIndex = id ? parseInt(id.split("-").reverse()[0]) : 0;
+          this.setState({ chapterDocIndex });
         }
-      }
-      if (this.state.isDisablePopup) return;
-      let selection = doc!.getSelection();
-      if (!selection || selection.rangeCount === 0) return;
 
-      var rect = selection.getRangeAt(0).getBoundingClientRect();
-      this.setState({ rect });
-    });
-    doc.addEventListener("contextmenu", (event) => {
-      if (document.location.href.indexOf("localhost") === -1) {
-        event.preventDefault();
-      }
+        if (this.state.isDisablePopup) {
+          if (doc!.getSelection()!.toString().trim().length === 0) {
+            let rect = doc!
+              .getSelection()!
+              .getRangeAt(0)
+              .getBoundingClientRect();
+            this.setState({ rect });
+          }
+        }
+        if (this.state.isDisablePopup) return;
+        let selection = doc!.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
 
-      if (!this.state.isDisablePopup && !this.state.isTouch) return;
+        var rect = selection.getRangeAt(0).getBoundingClientRect();
+        this.setState({ rect });
+      });
+      doc.addEventListener("contextmenu", (event) => {
+        if (
+          this.props.currentBook.format === "PDF" &&
+          ConfigService.getReaderConfig("isConvertPDF") !== "yes"
+        ) {
+          let ownerDoc = (event.target as HTMLElement).ownerDocument;
+          let targetIframe = ownerDoc?.defaultView?.frameElement;
+          let id = targetIframe?.getAttribute("id") || "";
+          let chapterDocIndex = id ? parseInt(id.split("-").reverse()[0]) : 0;
+          this.setState({ chapterDocIndex });
+        }
+        if (document.location.href.indexOf("localhost") === -1) {
+          event.preventDefault();
+        }
 
-      if (
-        !doc!.getSelection() ||
-        doc!.getSelection()!.toString().trim().length === 0
-      ) {
-        return;
-      }
-      let selection = doc!.getSelection();
-      if (!selection || selection.rangeCount === 0) return;
-      var rect = selection.getRangeAt(0).getBoundingClientRect();
-      this.setState({ rect });
-    });
+        if (!this.state.isDisablePopup && !this.state.isTouch) return;
+
+        if (
+          !doc!.getSelection() ||
+          doc!.getSelection()!.toString().trim().length === 0
+        ) {
+          return;
+        }
+        let selection = doc!.getSelection();
+        if (!selection || selection.rangeCount === 0) return;
+        var rect = selection.getRangeAt(0).getBoundingClientRect();
+        this.setState({ rect });
+      });
+    }
   };
   render() {
     return (
@@ -340,6 +458,14 @@ class Viewer extends React.Component<ViewerProps, ViewerState> {
               rect: this.state.rect,
               chapterDocIndex: this.state.chapterDocIndex,
               chapter: this.state.chapter,
+            }}
+          />
+        ) : null}
+        {this.props.htmlBook ? (
+          <PopupRefer
+            {...{
+              rendition: this.props.htmlBook.rendition,
+              chapterDocIndex: this.state.chapterDocIndex,
             }}
           />
         ) : null}

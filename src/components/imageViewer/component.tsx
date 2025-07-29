@@ -2,15 +2,15 @@ import React from "react";
 import "./imageViewer.css";
 import { ImageViewerProps, ImageViewerStates } from "./interface";
 import { saveAs } from "file-saver";
-import { handleLinkJump } from "../../utils/reader/linkUtil";
 import { getIframeDoc } from "../../utils/reader/docUtil";
-declare var window: any;
+import { getTargetHref } from "../../utils/common";
 class ImageViewer extends React.Component<ImageViewerProps, ImageViewerStates> {
   constructor(props: ImageViewerProps) {
     super(props);
     this.state = {
       isShowImage: false,
       imageRatio: "horizontal",
+      imageName: "",
       zoomIndex: 0,
       rotateIndex: 0,
     };
@@ -18,9 +18,12 @@ class ImageViewer extends React.Component<ImageViewerProps, ImageViewerStates> {
 
   componentDidMount() {
     this.props.rendition.on("rendered", () => {
-      let doc = getIframeDoc();
-      if (!doc) return;
-      doc.addEventListener("click", this.showImage);
+      let docs = getIframeDoc(this.props.currentBook.format);
+      for (let i = 0; i < docs.length; i++) {
+        let doc = docs[i];
+        if (!doc) continue;
+        doc.addEventListener("click", this.showImage);
+      }
     });
   }
 
@@ -32,8 +35,20 @@ class ImageViewer extends React.Component<ImageViewerProps, ImageViewerStates> {
       this.props.handleLeaveReader("top");
       this.props.handleLeaveReader("bottom");
     }
-    await handleLinkJump(event, this.props.rendition);
-    let href;
+
+    let href = getTargetHref(event);
+    if (
+      href &&
+      (this.props.rendition.resolveChapter(href) ||
+        href.indexOf("#") > -1 ||
+        href.indexOf("../") === 0 ||
+        href.indexOf("http") === 0 ||
+        href.indexOf("OEBPF") > -1 ||
+        href.indexOf("kindle:") > -1 ||
+        href.indexOf("footnote") > -1)
+    ) {
+      return;
+    }
     if (event.target.tagName === "IMG" && event.target.src) {
       href = event.target.src;
     }
@@ -43,7 +58,9 @@ class ImageViewer extends React.Component<ImageViewerProps, ImageViewerStates> {
     ) {
       href = event.target.getAttribute("xlink:href");
     }
-
+    if (event.target.tagName === "IMG" && event.target.getAttribute("alt")) {
+      this.setState({ imageName: event.target.getAttribute("alt") });
+    }
     if (!href) {
       return;
     }
@@ -118,7 +135,12 @@ class ImageViewer extends React.Component<ImageViewerProps, ImageViewerStates> {
   handleSave = async () => {
     let image: any = document.querySelector("#selectedImage");
     let blob = await fetch(image.src).then((r) => r.blob());
-    saveAs(blob, `${new Date().toLocaleDateString()}`);
+    saveAs(
+      blob,
+      this.state.imageName
+        ? this.state.imageName
+        : `${new Date().toLocaleDateString()}`
+    );
   };
   handleClock = () => {
     let image: any = document.querySelector("#selectedImage");
@@ -151,7 +173,7 @@ class ImageViewer extends React.Component<ImageViewerProps, ImageViewerStates> {
         ></div>
         <img
           src=""
-          alt=""
+          alt={this.state.imageName}
           className="image"
           id="selectedImage"
           style={

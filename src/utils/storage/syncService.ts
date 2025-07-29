@@ -9,10 +9,10 @@ import { getCloudConfig } from "../file/common";
 
 class SyncService {
   private static syncUtilCache: { [key: string]: SyncUtil } = {};
+  private static pickerUtilCache: { [key: string]: SyncUtil } = {};
   static async getSyncUtil() {
     let service = ConfigService.getItem("defaultSyncOption");
     if (!service) {
-      toast.error(i18n.t("Please select a sync service"));
       let thirdpartyRequest = await getThirdpartyRequest();
       return new SyncUtil("", {}, thirdpartyRequest);
     }
@@ -28,8 +28,25 @@ class SyncService {
     }
     return this.syncUtilCache[service];
   }
-  static async removeSyncUtil(service) {
+  static removeSyncUtil(service) {
     delete this.syncUtilCache[service];
+  }
+  static async getPickerUtil(service: string) {
+    if (!this.pickerUtilCache[service]) {
+      let config = await getCloudConfig(service);
+      config.baseFolder = "";
+      let thirdpartyRequest = await getThirdpartyRequest();
+
+      this.pickerUtilCache[service] = new SyncUtil(
+        service,
+        config,
+        thirdpartyRequest
+      );
+    }
+    return this.pickerUtilCache[service];
+  }
+  static async removePickerUtil(service: string) {
+    delete this.pickerUtilCache[service];
   }
 }
 export default SyncService;

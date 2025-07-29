@@ -7,13 +7,16 @@ import {
 } from "../../assets/lib/kookit-extra-browser.min";
 import i18n from "../../i18n";
 import { handleExitApp } from "./common";
-let thirdpartyRequest: ThirdpartyRequest;
+let thirdpartyRequest: ThirdpartyRequest | undefined;
 export const getThirdpartyRequest = async () => {
   if (thirdpartyRequest) {
     return thirdpartyRequest;
   }
   thirdpartyRequest = new ThirdpartyRequest(TokenService, ConfigService);
   return thirdpartyRequest;
+};
+export const resetThirdpartyRequest = () => {
+  thirdpartyRequest = undefined;
 };
 export const onSyncCallback = async (service: string, authCode: string) => {
   toast.loading(i18n.t("Adding"), { id: "adding-sync-id" });
@@ -28,6 +31,9 @@ export const onSyncCallback = async (service: string, authCode: string) => {
   // FOR PCLOUD, THE REFRESH TOKEN IS THE ACCESS TOKEN, ACCESS TOKEN NEVER EXPIRES
   let res = await encryptToken(service, {
     refresh_token: refreshToken,
+    auth_date: new Date().getTime(),
+    service: service,
+    version: 1,
   });
   if (res.code === 200) {
     ConfigService.setListConfig(service, "dataSourceList");
@@ -58,6 +64,11 @@ export const encryptToken = async (service: string, config: any) => {
     return response;
   } else {
     toast.error(i18n.t("Encryption failed, error code") + ": " + response.msg);
+    if (response.code === 20004) {
+      toast(
+        i18n.t("Please login again to update your membership on this device")
+      );
+    }
     return response;
   }
 };
@@ -86,6 +97,11 @@ export const decryptToken = async (service: string) => {
     return response;
   } else {
     toast.error(i18n.t("Decryption failed, error code") + ": " + response.msg);
+    if (response.code === 20004) {
+      toast(
+        i18n.t("Please login again to update your membership on this device")
+      );
+    }
     return response;
   }
 };

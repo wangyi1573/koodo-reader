@@ -3,8 +3,10 @@ import { withTranslation } from "react-i18next";
 import {
   handleSortDisplay,
   handleSetting,
+  handleSettingMode,
   handleAbout,
   handleBackupDialog,
+  handleLocalFileDialog,
   handleFeedbackDialog,
   handleFetchBooks,
   handleFetchNotes,
@@ -13,6 +15,8 @@ import {
   handleFetchDefaultSyncOption,
   handleFetchLoginOptionList,
   handleFetchDataSourceList,
+  handleCloudSyncFunc,
+  handleFetchUserInfo,
 } from "../../store/actions";
 import { stateType } from "../../store";
 import Header from "./component";
@@ -35,7 +39,9 @@ const mapStateToProps = (state: stateType) => {
 const actionCreator = {
   handleSortDisplay,
   handleBackupDialog,
+  handleLocalFileDialog,
   handleSetting,
+  handleSettingMode,
   handleAbout,
   handleFeedbackDialog,
   handleFetchBooks,
@@ -45,6 +51,8 @@ const actionCreator = {
   handleFetchDefaultSyncOption,
   handleFetchLoginOptionList,
   handleFetchDataSourceList,
+  handleCloudSyncFunc,
+  handleFetchUserInfo,
 };
 export default connect(
   mapStateToProps,

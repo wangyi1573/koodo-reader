@@ -55,12 +55,12 @@ class OperationPanel extends React.Component<
           1000,
       });
       this.handleDisplayBookmark();
-
-      HtmlMouseEvent(
-        this.props.htmlBook.rendition,
-        this.props.currentBook.key,
-        this.props.readerMode
-      );
+      // HtmlMouseEvent(
+      //   this.props.htmlBook.rendition,
+      //   this.props.currentBook.key,
+      //   this.props.readerMode,
+      //   this.props.currentBook.format
+      // );
     });
   }
 
@@ -75,8 +75,9 @@ class OperationPanel extends React.Component<
       ConfigService.setReaderConfig("isFullscreen", "yes");
     }
   }
-  handleExit() {
+  async handleExit() {
     ConfigService.setReaderConfig("isFullscreen", "no");
+    ConfigService.setItem("isFinshReading", "yes");
     this.props.handleReadingState(false);
     this.props.handleSearch(false);
     window.speechSynthesis && window.speechSynthesis.cancel();
@@ -85,7 +86,6 @@ class OperationPanel extends React.Component<
     if (this.props.htmlBook) {
       this.props.handleHtmlBook(null);
     }
-
     if (isElectron) {
       if (ConfigService.getReaderConfig("isOpenInMain") === "yes") {
         window.require("electron").ipcRenderer.invoke("exit-tab", "ping");
@@ -109,7 +109,7 @@ class OperationPanel extends React.Component<
 
     let cfi = JSON.stringify(bookLocation);
     if (!text) {
-      text = this.props.htmlBook.rendition.visibleText().join(" ");
+      text = (await this.props.htmlBook.rendition.visibleText()).join(" ");
     }
     text = text
       .replace(/\s\s/g, "")
@@ -159,11 +159,13 @@ class OperationPanel extends React.Component<
           <span>
             <Trans
               i18nKey="Current reading time"
-              count={Math.floor(Math.abs(Math.floor(this.props.time / 60)))}
+              count={Math.floor(
+                Math.abs(Math.floor(this.props.currentDuration / 60))
+              )}
             >
               Current reading time:
               {{
-                count: Math.abs(Math.floor(this.props.time / 60)),
+                count: Math.abs(Math.floor(this.props.currentDuration / 60)),
               }}
               min
             </Trans>

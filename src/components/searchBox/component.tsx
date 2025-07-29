@@ -1,12 +1,18 @@
 import React from "react";
 import "./searchBox.css";
-import { SearchBoxProps } from "./interface";
+import { SearchBoxProps, SearchBoxState } from "./interface";
 import {
   ConfigService,
   SearchUtil,
 } from "../../assets/lib/kookit-extra-browser.min";
 
-class SearchBox extends React.Component<SearchBoxProps> {
+class SearchBox extends React.Component<SearchBoxProps, SearchBoxState> {
+  constructor(props: SearchBoxProps) {
+    super(props);
+    this.state = {
+      isFocused: false,
+    };
+  }
   componentDidMount() {
     if (this.props.isNavSearch) {
       let searchBox: any = document.querySelector(".header-search-box");
@@ -18,6 +24,7 @@ class SearchBox extends React.Component<SearchBoxProps> {
     if (this.props.isNavSearch) {
       value && this.search(value);
     }
+    this.setState({ isFocused: false });
     if (this.props.mode === "nav") {
       this.props.handleNavSearchState("searching");
     }
@@ -27,7 +34,9 @@ class SearchBox extends React.Component<SearchBoxProps> {
             this.props.notes.filter((item) => item.notes !== "")
           )
         : this.props.tabMode === "digest"
-        ? SearchUtil.mouseNoteSearch(this.props.digests)
+        ? SearchUtil.mouseNoteSearch(
+            this.props.notes.filter((item) => item.notes === "")
+          )
         : SearchUtil.mouseSearch(this.props.books);
     if (results) {
       this.props.handleSearchResults(results);
@@ -42,6 +51,7 @@ class SearchBox extends React.Component<SearchBoxProps> {
     if (this.props.isNavSearch || this.props.isReading) {
       value && this.search(value);
     }
+    this.setState({ isFocused: false });
     let results =
       this.props.tabMode === "note"
         ? SearchUtil.keyNoteSearch(
@@ -49,7 +59,10 @@ class SearchBox extends React.Component<SearchBoxProps> {
             this.props.notes.filter((item) => item.notes !== "")
           )
         : this.props.tabMode === "digest"
-        ? SearchUtil.keyNoteSearch(event, this.props.digests)
+        ? SearchUtil.keyNoteSearch(
+            event,
+            this.props.notes.filter((item) => item.notes === "")
+          )
         : SearchUtil.keySearch(event, this.props.books);
     if (results) {
       this.props.handleSearchResults(results);
@@ -91,6 +104,7 @@ class SearchBox extends React.Component<SearchBoxProps> {
             this.handleKey(event);
           }}
           onFocus={() => {
+            this.setState({ isFocused: true });
             this.props.mode === "nav" &&
               this.props.handleNavSearchState("focused");
           }}
@@ -127,7 +141,7 @@ class SearchBox extends React.Component<SearchBoxProps> {
             }
           }}
         />
-        {this.props.isSearch ? (
+        {this.props.isSearch && !this.state.isFocused ? (
           <span
             className="header-search-text"
             onClick={() => {

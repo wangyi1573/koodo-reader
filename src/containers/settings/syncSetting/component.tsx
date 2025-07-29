@@ -11,6 +11,8 @@ import toast from "react-hot-toast";
 import {
   handleContextMenu,
   openExternalUrl,
+  openInBrowser,
+  testConnection,
   WEBSITE_URL,
 } from "../../../utils/common";
 import { getStorageLocation } from "../../../utils/common";
@@ -25,6 +27,7 @@ import {
   onSyncCallback,
 } from "../../../utils/request/thirdparty";
 import SyncService from "../../../utils/storage/syncService";
+import { resetKoodoSync, updateUserConfig } from "../../../utils/request/user";
 declare var window: any;
 class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
   constructor(props: SettingInfoProps) {
@@ -49,16 +52,17 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
         ConfigService.getReaderConfig("isDeleteShelfBook") === "yes",
       isHideShelfBook:
         ConfigService.getReaderConfig("isHideShelfBook") === "yes",
-      isPreventSleep: ConfigService.getReaderConfig("isPreventSleep") === "yes",
       isOpenInMain: ConfigService.getReaderConfig("isOpenInMain") === "yes",
       isDisableUpdate:
         ConfigService.getReaderConfig("isDisableUpdate") === "yes",
       isPrecacheBook: ConfigService.getReaderConfig("isPrecacheBook") === "yes",
-      isDisableMobilePrecache:
-        ConfigService.getReaderConfig("isDisableMobilePrecache") === "yes",
       appSkin: ConfigService.getReaderConfig("appSkin"),
       isUseBuiltIn: ConfigService.getReaderConfig("isUseBuiltIn") === "yes",
       isKeepLocal: ConfigService.getReaderConfig("isKeepLocal") === "yes",
+      isDisableAutoSync:
+        ConfigService.getReaderConfig("isDisableAutoSync") === "yes",
+      isEnableKoodoSync:
+        ConfigService.getReaderConfig("isEnableKoodoSync") === "yes",
       isDisablePDFCover:
         ConfigService.getReaderConfig("isDisablePDFCover") === "yes",
       currentThemeIndex: _.findLastIndex(themeList, {
@@ -75,7 +79,7 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
     toast.success(this.props.t("Change successful"));
   };
   handleJump = (url: string) => {
-    openExternalUrl(url);
+    openInBrowser(url);
   };
   handleSetting = (stateName: string) => {
     this.setState({ [stateName]: !this.state[stateName] } as any);
@@ -86,12 +90,13 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
     this.handleRest(this.state[stateName]);
   };
   handleAddDataSource = (event: any) => {
-    if (!event.target.value) {
+    let targetDrive = event.target.value;
+    if (!targetDrive) {
       return;
     }
     if (
       !driveList
-        .find((item) => item.value === event.target.value)
+        .find((item) => item.value === targetDrive)
         ?.support.includes("browser") &&
       !isElectron
     ) {
@@ -103,35 +108,54 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
       return;
     }
     if (
-      driveList.find((item) => item.value === event.target.value)?.isPro &&
+      driveList.find((item) => item.value === targetDrive)?.isPro &&
       !this.props.isAuthed
     ) {
       toast(this.props.t("This feature is not available in the free version"));
       return;
     }
-    this.props.handleSettingDrive(event.target.value);
+    this.props.handleSettingDrive(targetDrive);
+    let settingDrive = targetDrive;
+    if (
+      settingDrive === "dropbox" ||
+      settingDrive === "google" ||
+      settingDrive === "boxnet" ||
+      settingDrive === "pcloud" ||
+      settingDrive === "adrive" ||
+      settingDrive === "microsoft_exp" ||
+      settingDrive === "google_exp" ||
+      settingDrive === "microsoft"
+    ) {
+      this.handleJump(new SyncUtil(settingDrive, {}).getAuthUrl());
+    }
   };
   handleDeleteDataSource = async (event: any) => {
-    if (!event.target.value) {
+    let targetDrive = event.target.value;
+    if (!targetDrive) {
       return;
     }
-    await TokenService.setToken(event.target.value + "_token", "");
-    SyncService.removeSyncUtil(event.target.value);
-    removeCloudConfig(event.target.value);
+    await TokenService.setToken(targetDrive + "_token", "");
+    SyncService.removeSyncUtil(targetDrive);
+    removeCloudConfig(targetDrive);
     if (isElectron) {
       const { ipcRenderer } = window.require("electron");
       await ipcRenderer.invoke("cloud-close", {
-        service: event.target.value,
+        service: targetDrive,
       });
     }
-    ConfigService.deleteListConfig(event.target.value, "dataSourceList");
+    ConfigService.deleteListConfig(targetDrive, "dataSourceList");
     this.props.handleFetchDataSourceList();
+    if (targetDrive === ConfigService.getItem("defaultSyncOption")) {
+      ConfigService.removeItem("defaultSyncOption");
+      this.props.handleFetchDefaultSyncOption();
+    }
     toast.success(this.props.t("Deletion successful"));
   };
-  handleSetDefaultSyncOption = (event: any) => {
+  handleSetDefaultSyncOption = async (event: any) => {
     if (!event.target.value) {
       return;
     }
+    resetKoodoSync(event.target.value);
     ConfigService.setItem("defaultSyncOption", event.target.value);
     this.props.handleFetchDefaultSyncOption();
     toast.success(this.props.t("Change successful"));
@@ -155,6 +179,7 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
     }
     if (
       this.props.settingDrive === "webdav" ||
+      this.props.settingDrive === "docker" ||
       this.props.settingDrive === "ftp" ||
       this.props.settingDrive === "sftp" ||
       this.props.settingDrive === "mega" ||
@@ -177,7 +202,7 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
         this.state.driveConfig.token
       );
     }
-    if (this.props.isAuthed) {
+    if (this.props.isAuthed && !ConfigService.getItem("defaultSyncOption")) {
       ConfigService.setItem("defaultSyncOption", this.props.settingDrive);
       this.props.handleFetchDefaultSyncOption();
     }
@@ -200,6 +225,14 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
               className="single-control-switch"
               onClick={() => {
                 switch (item.propName) {
+                  case "isEnableKoodoSync":
+                    updateUserConfig({
+                      is_enable_koodo_sync: !this.state.isEnableKoodoSync
+                        ? "yes"
+                        : "no",
+                    });
+                    this.handleSetting(item.propName);
+                    break;
                   default:
                     this.handleSetting(item.propName);
                     break;
@@ -243,6 +276,7 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
             }}
           >
             {this.props.settingDrive === "webdav" ||
+            this.props.settingDrive === "docker" ||
             this.props.settingDrive === "ftp" ||
             this.props.settingDrive === "sftp" ||
             this.props.settingDrive === "mega" ||
@@ -250,35 +284,49 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
               <>
                 {driveInputConfig[this.props.settingDrive].map((item) => {
                   return (
-                    <input
-                      type={item.type}
-                      name={item.value}
-                      key={item.value}
-                      placeholder={
-                        this.props.t(item.label) +
-                        (item.required
-                          ? ""
-                          : " (" + this.props.t("Optional") + ")")
-                      }
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          this.setState((prevState) => ({
-                            driveConfig: {
-                              ...prevState.driveConfig,
-                              [item.value]: e.target.value.trim(),
-                            },
-                          }));
+                    <div key={item.value}>
+                      <input
+                        type={item.type}
+                        name={item.value}
+                        key={item.value}
+                        placeholder={
+                          this.props.t(item.label) +
+                          (item.required
+                            ? ""
+                            : " (" + this.props.t("Optional") + ")")
                         }
-                      }}
-                      onContextMenu={() => {
-                        handleContextMenu(
-                          "token-dialog-" + item.value + "-box",
-                          true
-                        );
-                      }}
-                      id={"token-dialog-" + item.value + "-box"}
-                      className="token-dialog-username-box"
-                    />
+                        onChange={(e) => {
+                          if (e.target.value) {
+                            this.setState((prevState) => ({
+                              driveConfig: {
+                                ...prevState.driveConfig,
+                                [item.value]: e.target.value.trim(),
+                              },
+                            }));
+                          }
+                        }}
+                        onContextMenu={() => {
+                          handleContextMenu(
+                            "token-dialog-" + item.value + "-box",
+                            true
+                          );
+                        }}
+                        id={"token-dialog-" + item.value + "-box"}
+                        className="token-dialog-username-box"
+                      />
+                      {item.example && (
+                        <div
+                          style={{
+                            marginTop: "5px",
+                            marginLeft: "2px",
+                            fontSize: "12px",
+                            opacity: 0.8,
+                          }}
+                        >
+                          {this.props.t("Example")}: {item.example}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
               </>
@@ -288,7 +336,7 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
                   className="token-dialog-token-box"
                   id="token-dialog-token-box"
                   placeholder={this.props.t(
-                    "Please authorize your account, and fill the following box with the token"
+                    "Please click the authorize button below to authorize your account, enter the obtained credentials here, and then click the bind button below"
                   )}
                   onChange={(e) => {
                     if (e.target.value) {
@@ -306,10 +354,68 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
                 />
               </>
             )}
+            {this.props.settingDrive === "webdav" && !isElectron && (
+              <div
+                className="token-dialog-tip"
+                style={{
+                  marginTop: "10px",
+                  fontSize: "13px",
+                  lineHeight: "16px",
+                  color: "rgba(231, 69, 69, 0.8)",
+                }}
+              >
+                {this.props.t(
+                  "Only WebDAV service provided by Alist is directly supported in Browser, Other WebDAV services need to enable CORS to work properly. Also due to browser's security restrictions, the WebDAV service must be accessed via HTTPS protocol when you're visiting Koodo Reader via HTTPS protocal."
+                )}
+              </div>
+            )}
+            {this.props.settingDrive === "docker" && !isElectron && (
+              <div
+                className="token-dialog-tip"
+                style={{
+                  marginTop: "10px",
+                  fontSize: "13px",
+                  lineHeight: "16px",
+                  color: "rgba(231, 69, 69, 0.8)",
+                }}
+              >
+                {this.props.t(
+                  "The Koodo Reader Docker version does not support the data source feature by default. You need to modify the configuration parameters during deployment to manually enable it. Also due to browser's security restrictions, the Docker service must be accessed via HTTPS protocol when you're visiting Koodo Reader via HTTPS protocal."
+                )}
+              </div>
+            )}
+            {this.props.settingDrive === "s3compatible" && !isElectron && (
+              <div
+                className="token-dialog-tip"
+                style={{
+                  marginTop: "10px",
+                  fontSize: "13px",
+                  lineHeight: "16px",
+                  color: "rgba(231, 69, 69, 0.8)",
+                }}
+              >
+                {this.props.t(
+                  "Some S3 services are not compatible with browser environments. If you encounter connection issues, please refer to the service provider's official documentation for instructions on enabling CORS. Also due to browser's security restrictions, the S3 service must be accessed via HTTPS protocol when you're visiting Koodo Reader via HTTPS protocal."
+                )}
+              </div>
+            )}
             <div className="token-dialog-button-container">
               <div
                 className="voice-add-confirm"
                 onClick={async () => {
+                  if (
+                    this.props.settingDrive === "docker" ||
+                    this.props.settingDrive === "webdav" ||
+                    this.props.settingDrive === "s3compatible"
+                  ) {
+                    let result = await testConnection(
+                      this.props.settingDrive,
+                      this.state.driveConfig
+                    );
+                    if (!result) {
+                      return;
+                    }
+                  }
                   this.handleConfirmDrive();
                 }}
               >
@@ -330,6 +436,8 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
                   this.props.settingDrive === "boxnet" ||
                   this.props.settingDrive === "pcloud" ||
                   this.props.settingDrive === "adrive" ||
+                  this.props.settingDrive === "microsoft_exp" ||
+                  this.props.settingDrive === "google_exp" ||
                   this.props.settingDrive === "microsoft") && (
                   <div
                     className="voice-add-confirm"
@@ -343,62 +451,25 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
                     <Trans>Authorize</Trans>
                   </div>
                 )}
-                {isElectron &&
-                  (this.props.settingDrive === "webdav" ||
-                    this.props.settingDrive === "ftp" ||
-                    this.props.settingDrive === "sftp" ||
-                    this.props.settingDrive === "mega" ||
-                    this.props.settingDrive === "s3compatible") && (
-                    <div
-                      className="voice-add-confirm"
-                      style={{ marginRight: "10px" }}
-                      onClick={async () => {
-                        toast.loading(this.props.t("Testing connection..."), {
-                          id: "testing-connection-id",
-                        });
-                        const { ipcRenderer } = window.require("electron");
-                        const fs = window.require("fs");
-                        fs.writeFileSync(
-                          getStorageLocation() + "/config/test.txt",
-                          "Hello world!"
-                        );
-                        let driveConfig: any = {};
-                        for (let item in this.state.driveConfig) {
-                          driveConfig[item] = this.state.driveConfig[item];
-                        }
-                        let result = await ipcRenderer.invoke("cloud-upload", {
-                          ...driveConfig,
-                          fileName: "test.txt",
-                          service: this.props.settingDrive,
-                          type: "config",
-                          storagePath: getStorageLocation(),
-                          isUseCache: false,
-                        });
-                        if (result) {
-                          toast.success(this.props.t("Connection successful"), {
-                            id: "testing-connection-id",
-                          });
-                          await ipcRenderer.invoke("cloud-delete", {
-                            ...driveConfig,
-                            fileName: "test.txt",
-                            service: this.props.settingDrive,
-                            type: "config",
-                            storagePath: getStorageLocation(),
-                            isUseCache: false,
-                          });
-                        } else {
-                          toast.error(this.props.t("Connection failed"), {
-                            id: "testing-connection-id",
-                          });
-                        }
-                        fs.unlinkSync(
-                          getStorageLocation() + "/config/test.txt"
-                        );
-                      }}
-                    >
-                      <Trans>Test</Trans>
-                    </div>
-                  )}
+                {(this.props.settingDrive === "webdav" ||
+                  this.props.settingDrive === "docker" ||
+                  this.props.settingDrive === "ftp" ||
+                  this.props.settingDrive === "sftp" ||
+                  this.props.settingDrive === "mega" ||
+                  this.props.settingDrive === "s3compatible") && (
+                  <div
+                    className="voice-add-confirm"
+                    style={{ marginRight: "10px" }}
+                    onClick={async () => {
+                      testConnection(
+                        this.props.settingDrive,
+                        this.state.driveConfig
+                      );
+                    }}
+                  >
+                    <Trans>Test</Trans>
+                  </div>
+                )}
                 {(this.props.settingDrive === "webdav" ||
                   this.props.settingDrive === "ftp" ||
                   this.props.settingDrive === "s3compatible" ||
@@ -407,7 +478,7 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
                   ConfigService.getReaderConfig("lang").startsWith("zh") && (
                     <div
                       className="voice-add-cancel"
-                      style={{ borderWidth: 0 }}
+                      style={{ borderWidth: 0, lineHeight: "30px" }}
                       onClick={() => {
                         openExternalUrl(WEBSITE_URL + "/zh/add-source");
                       }}
@@ -426,13 +497,36 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
             className="lang-setting-dropdown"
             onChange={this.handleAddDataSource}
           >
-            {[{ label: "Please select", value: "", isPro: false }, ...driveList]
+            {[
+              {
+                label: "Please select",
+                value: "",
+                isPro: false,
+                support: ["desktop", "browser", "phone"],
+              },
+              ...driveList.filter((item) => {
+                if (ConfigService.getItem("serverRegion") === "china") {
+                  return item.isCNAvailable;
+                }
+                return true;
+              }),
+            ]
               .filter((item) => !this.props.dataSourceList.includes(item.value))
+              .filter((item) => {
+                if (!isElectron) {
+                  return item.support.includes("browser");
+                } else {
+                  return true;
+                }
+              })
               .map((item) => (
                 <option
                   value={item.value}
                   key={item.value}
                   className="lang-setting-option"
+                  selected={
+                    item.value === this.props.settingDrive ? true : false
+                  }
                 >
                   {this.props.t(item.label) + (item.isPro ? " (Pro)" : "")}
                 </option>
@@ -446,7 +540,15 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
             className="lang-setting-dropdown"
             onChange={this.handleDeleteDataSource}
           >
-            {[{ label: "Please select", value: "", isPro: false }, ...driveList]
+            {[
+              { label: "Please select", value: "", isPro: false },
+              ...driveList.filter((item) => {
+                if (ConfigService.getItem("serverRegion") === "china") {
+                  return item.isCNAvailable;
+                }
+                return true;
+              }),
+            ]
               .filter(
                 (item) =>
                   this.props.dataSourceList.includes(item.value) ||
@@ -469,11 +571,18 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
             <select
               name=""
               className="lang-setting-dropdown"
-              onChange={this.handleSetDefaultSyncOption}
+              onChange={(event) => {
+                this.handleSetDefaultSyncOption(event);
+              }}
             >
               {[
                 { label: "Please select", value: "", isPro: false },
-                ...driveList,
+                ...driveList.filter((item) => {
+                  if (ConfigService.getItem("serverRegion") === "china") {
+                    return item.isCNAvailable;
+                  }
+                  return true;
+                }),
               ]
                 .filter(
                   (item) =>
@@ -496,7 +605,7 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
             </select>
           </div>
         )}
-        {this.renderSwitchOption(syncSettingList)}
+        {this.props.isAuthed && this.renderSwitchOption(syncSettingList)}
       </>
     );
   }

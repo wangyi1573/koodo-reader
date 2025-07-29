@@ -4,7 +4,11 @@ import { FeedbackDialogProps, FeedbackDialogState } from "./interface";
 import toast from "react-hot-toast";
 import "./feedbackDialog.css";
 import packageInfo from "../../../../package.json";
-import { openExternalUrl, WEBSITE_URL } from "../../../utils/common";
+import {
+  openExternalUrl,
+  openInBrowser,
+  WEBSITE_URL,
+} from "../../../utils/common";
 import JSZip from "jszip";
 import {
   checkDeveloperUpdate,
@@ -13,6 +17,13 @@ import {
   uploadFile,
 } from "../../../utils/request/common";
 import { ConfigService } from "../../../assets/lib/kookit-extra-browser.min";
+import {
+  browserName,
+  browserVersion,
+  isElectron,
+  osName,
+  osVersion,
+} from "react-device-detect";
 declare var window: any;
 class FeedbackDialog extends Component<
   FeedbackDialogProps,
@@ -80,8 +91,9 @@ class FeedbackDialog extends Component<
     }
     toast.loading(this.props.t("Sending"), { id: "sending-id" });
     let version = packageInfo.version;
-    const os = window.require("os");
-    const system = os.platform() + " " + os.version();
+    const system = isElectron
+      ? osName + " " + osVersion
+      : browserName + " " + browserVersion;
     let fileName = "";
     if (this.state.fileContent && this.state.uploadUrl) {
       var segments = this.state.uploadUrl.split("/").reverse()[0];
@@ -110,7 +122,7 @@ class FeedbackDialog extends Component<
     this.props.handleFeedbackDialog(false);
   };
   handleJump = (url: string) => {
-    openExternalUrl(url);
+    openInBrowser(url);
   };
   getFileName(url: string) {
     var regex = /([^?]+)(?=\?|$)/;
@@ -185,7 +197,7 @@ class FeedbackDialog extends Component<
                 packageInfo.version.localeCompare(this.state.developerVersion) <
                 0
                   ? {}
-                  : { marginTop: "30px" }
+                  : { marginTop: "10px" }
               }
             />
 

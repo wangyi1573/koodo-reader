@@ -50,6 +50,7 @@ export type stateType = {
     isSortDisplay: boolean;
     isAboutOpen: boolean;
     isShowLoading: boolean;
+    isShowPopupNote: boolean;
     isShowSupport: boolean;
     isShowNew: boolean;
     userInfo: any;
@@ -76,13 +77,18 @@ export type stateType = {
     totalPage: number;
     currentBook: BookModel;
     renderBookFunc: () => void;
+    importBookFunc: (file: any) => Promise<void>;
+    cloudSyncFunc: () => Promise<void>;
     renderNoteFunc: () => void;
   };
   backupPage: {
     isBackup: boolean;
+    isOpenLocalFileDialog: boolean;
+    isOpenImportDialog: boolean;
+    isOpenSortShelfDialog: boolean;
     isOpenTokenDialog: boolean;
     dataSourceList: string[];
-    loginOptionList: string[];
+    loginOptionList: { email: string; provider: string }[];
     defaultSyncOption: string;
   };
   progressPanel: {
@@ -92,11 +98,12 @@ export type stateType = {
   reader: {
     bookmarks: BookmarkModel[];
     notes: NoteModel[];
-    digests: NoteModel[];
     color: number;
     chapters: any[];
     readerMode: string;
     isNavLocked: boolean;
+    isSettingLocked: boolean;
+    isConvertOpen: boolean;
     noteKey: string;
     currentChapter: string;
     currentChapterIndex: number;

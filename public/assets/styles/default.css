@@ -8,6 +8,7 @@ body {
 .setting-subtitle,
 .book-more-action,
 .reading-progress-icon,
+.more-option-text,
 .book-subcontent-name {
   color: rgba(75, 75, 75, 1);
 }
@@ -170,6 +171,7 @@ body {
 .book-item-cover,
 .book-cover,
 .detail-cover,
+.more-options-dropdown,
 .detail-cover-background-container,
 .book-cover-item-cover {
   background: rgba(255, 255, 255, 1);
@@ -217,6 +219,7 @@ body {
 .import-from-cloud,
 .only-local-slider,
 .single-control-button,
+.setting-dialog-pro-button,
 .progress-slide-circle {
   background: rgba(255, 255, 255, 1);
 }

@@ -13,16 +13,27 @@ import { Redirect, withRouter } from "react-router-dom";
 import ViewMode from "../../../components/viewMode";
 import SelectBook from "../../../components/selectBook";
 import { Trans } from "react-i18next";
-import DeletePopup from "../../../components/dialogs/deletePopup";
 declare var window: any;
 let currentBookMode = "home";
-let totalPage = 0;
-let totalBook = 0;
+function getBookCountPerPage() {
+  if (ConfigService.getReaderConfig("isDisablePagination") === "yes")
+    return 999;
+  const container = document.querySelector(
+    ".book-list-container"
+  ) as HTMLElement;
+  if (!container) return 24; // fallback
+  const containerWidth = container.clientWidth;
+  const containerHeight = container.clientHeight;
+  const bookWidth = 133;
+  const bookHeight = 201;
+  const columns = Math.max(1, Math.floor(containerWidth / bookWidth));
+  const rows = Math.max(1, Math.floor(containerHeight / bookHeight)) + 2;
+  return columns * rows;
+}
 class BookList extends React.Component<BookListProps, BookListState> {
   constructor(props: BookListProps) {
     super(props);
     this.state = {
-      isOpenDelete: false,
       favoriteBooks: Object.keys(
         ConfigService.getAllListConfig("favoriteBooks")
       ).length,
@@ -30,6 +41,9 @@ class BookList extends React.Component<BookListProps, BookListState> {
         ConfigService.getReaderConfig("isHideShelfBook") === "yes",
       isRefreshing: false,
     };
+  }
+  get bookCount() {
+    return getBookCountPerPage();
   }
   UNSAFE_componentWillMount() {
     this.props.handleFetchBooks();
@@ -39,6 +53,11 @@ class BookList extends React.Component<BookListProps, BookListState> {
     if (!this.props.books || !this.props.books[0]) {
       return <Redirect to="manager/empty" />;
     }
+    window.addEventListener("resize", () => {
+      //recount the book count per page when the window is resized
+      this.props.handleFetchBooks();
+      this.props.handleCurrentPage(1);
+    });
   }
 
   handleKeyFilter = (items: any[], arr: string[]) => {
@@ -139,11 +158,6 @@ class BookList extends React.Component<BookListProps, BookListState> {
     if (books.length === 0 && !this.props.isSearch) {
       return <Redirect to="/manager/empty" />;
     }
-    totalPage =
-      books.length % 24 === 0
-        ? books.length / 24
-        : Math.floor(books.length / 24) + 1;
-    totalBook = books.length;
     if (bookMode !== currentBookMode) {
       this.props.handleCurrentPage(1);
       currentBookMode = bookMode;
@@ -152,8 +166,8 @@ class BookList extends React.Component<BookListProps, BookListState> {
     return books
       .filter(
         (_, index) =>
-          index >= (this.props.currentPage - 1) * 24 &&
-          index < this.props.currentPage * 24
+          index >= (this.props.currentPage - 1) * this.bookCount &&
+          index < this.props.currentPage * this.bookCount
       )
       .map((item: BookModel, index: number) => {
         return this.props.viewMode === "list" ? (
@@ -183,18 +197,6 @@ class BookList extends React.Component<BookListProps, BookListState> {
         );
       });
   };
-  handleDeleteShelf = () => {
-    if (!this.props.shelfTitle) return;
-    let currentShelfTitle = this.props.shelfTitle;
-    ConfigService.deleteMapConfig(currentShelfTitle, "shelfList");
-
-    this.props.handleShelf("");
-    this.props.handleMode("home");
-    this.props.history.push("/manager/home");
-  };
-  handleDeletePopup = (isOpenDelete: boolean) => {
-    this.setState({ isOpenDelete });
-  };
   isElementInViewport = (element) => {
     const rect = element.getBoundingClientRect();
 
@@ -206,6 +208,40 @@ class BookList extends React.Component<BookListProps, BookListState> {
       rect.right <= (window.innerWidth || document.documentElement.clientWidth)
     );
   };
+  calculateTotalBooksAndPage = () => {
+    let bookMode = this.props.isSearch
+      ? "search"
+      : this.props.shelfTitle
+      ? "shelf"
+      : this.props.mode === "favorite"
+      ? "favorite"
+      : this.state.isHideShelfBook
+      ? "hide"
+      : "home";
+
+    let books =
+      bookMode === "search"
+        ? this.handleIndexFilter(this.props.books, this.props.searchResults)
+        : bookMode === "shelf"
+        ? this.handleShelf(this.props.books, this.props.shelfTitle)
+        : bookMode === "favorite"
+        ? this.handleKeyFilter(
+            this.props.books,
+            ConfigService.getAllListConfig("favoriteBooks")
+          )
+        : bookMode === "hide"
+        ? this.handleFilterShelfBook(this.props.books)
+        : this.props.books;
+
+    return {
+      totalBook: books.length,
+      totalPage:
+        books.length % this.bookCount === 0
+          ? books.length / this.bookCount
+          : Math.floor(books.length / this.bookCount) + 1,
+    };
+  };
+
   render() {
     if (
       (this.state.favoriteBooks === 0 && this.props.mode === "favorite") ||
@@ -214,18 +250,9 @@ class BookList extends React.Component<BookListProps, BookListState> {
     ) {
       return <Redirect to="/manager/empty" />;
     }
-
-    const deletePopupProps = {
-      mode: "shelf",
-      name: this.props.shelfTitle,
-      title: "Delete this shelf",
-      description: "This action will clear and remove this shelf",
-      handleDeletePopup: this.handleDeletePopup,
-      handleDeleteOpearion: this.handleDeleteShelf,
-    };
+    const { totalBook, totalPage } = this.calculateTotalBooksAndPage();
     return (
       <>
-        {this.state.isOpenDelete && <DeletePopup {...deletePopupProps} />}
         <div
           className="book-list-header"
           style={
@@ -235,16 +262,6 @@ class BookList extends React.Component<BookListProps, BookListState> {
           }
         >
           <SelectBook />
-          {this.props.shelfTitle && !this.props.isSelectBook && (
-            <div
-              className="booklist-delete-container"
-              onClick={() => {
-                this.handleDeletePopup(true);
-              }}
-            >
-              <Trans>Delete this shelf</Trans>
-            </div>
-          )}
 
           <div
             style={this.props.isSelectBook ? { display: "none" } : {}}

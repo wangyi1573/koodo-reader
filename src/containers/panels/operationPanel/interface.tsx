@@ -12,7 +12,7 @@ export interface OperationPanelProps extends RouteComponentProps<any> {
   htmlBook: HtmlBookModel;
   locations: any;
   rendition: any;
-  time: number;
+  currentDuration: number;
   readerMode: string;
   handleBookmarks: (bookmarks: BookmarkModel[]) => void;
   handleReadingState: (isReading: boolean) => void;
@@ -21,7 +21,6 @@ export interface OperationPanelProps extends RouteComponentProps<any> {
   handleOpenMenu: (isOpenMenu: boolean) => void;
   handleShowBookmark: (isShowBookmark: boolean) => void;
   handleReadingBook: (currentBook: BookModel | object) => void;
-
   t: (title: string) => string;
   handleHtmlBook: (htmlBook: HtmlBookModel | null) => void;
 }

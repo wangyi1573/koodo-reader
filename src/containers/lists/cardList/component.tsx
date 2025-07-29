@@ -141,23 +141,41 @@ class CardList extends React.Component<CardListProps, CardListStates> {
                   }}
                 />
               </div>
-              <div
-                onClick={() => {
-                  this.handleJump(item);
-                }}
-              >
-                <div
-                  className="card-list-item-show-more"
-                  style={{ bottom: "10px" }}
+              <div className="card-list-item-show-more-container">
+                <span
+                  data-tooltip-id="my-tooltip"
+                  data-tooltip-content={this.props.t("Edit")}
                 >
-                  {this.props.mode === "note" ? (
-                    <Trans>{"More notes"}</Trans>
-                  ) : (
-                    <Trans>{"Show in the book"}</Trans>
-                  )}
+                  <span
+                    className="icon-edit-line"
+                    style={{
+                      fontSize: "22px",
+                      marginRight: "15px",
+                      marginLeft: "15px",
+                    }}
+                    onClick={() => {
+                      this.props.handleNoteKey(item.key);
+                      this.props.handleShowPopupNote(true);
+                    }}
+                  ></span>
+                </span>
 
-                  <span className="icon-dropdown icon-card-right"></span>
-                </div>
+                <span
+                  data-tooltip-id="my-tooltip"
+                  data-tooltip-content={this.props.t("Show in the book")}
+                >
+                  <span
+                    className="icon-idea-line"
+                    style={{
+                      fontSize: "22px",
+
+                      fontWeight: 400,
+                    }}
+                    onClick={() => {
+                      this.handleJump(item);
+                    }}
+                  ></span>
+                </span>
               </div>
             </div>
           </li>

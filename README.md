@@ -48,6 +48,7 @@
   - Hyper Text (**.html**, **.xml**, **.xhtml**, **.mhtml**, **.htm**)
 - Platform support: **Windows**, **macOS**, **Linux**, **Android**, **iOS** and **Web**
 - Utilize **OneDrive**, **Google Drive**, **Dropbox**, **MEGA**, **pCloud**, **Aliyun Drive**, **Box**, **FTP**, **SFTP**, **WebDAV**, **Object Storage** to sync and backup your data.
+- Easily import books from **OneDrive**, **Google Drive**, **MEGA**, **Aliyun Drive**, **Box**, **FTP**, **SFTP**, **WebDAV**, **Object Storage**
 - AI Translation, AI Dictionary, AI Summarization
 - Single-column, two-column, or continuous scrolling layouts
 - Text-to-speech, translation, dictionary, touch screen support, batch import
@@ -58,30 +59,57 @@
 
 ## Installation
 
-- Desktop Version:
-  - Stable Version (Recommended): [Download](https://koodoreader.com/en)
-  - Developer version: [Download](https://github.com/koodo-reader/koodo-reader/releases/latest) ( With new feature and bug fix, but may induce some unknown bugs)
-- Web Version：[Preview](https://web.koodoreader.com)
-- Android Version：[Download](https://koodoreader.com/en/download)
-- iOS Version：[Download](https://koodoreader.com/en/download)
-- Install with Scoop:
+### Desktop Version:
+
+- Stable Version (Recommended): [Download](https://koodoreader.com/en)
+- Developer version: [Download](https://github.com/koodo-reader/koodo-reader/releases/latest) ( With new feature and bug fix, but may induce some unknown bugs)
+
+### Web Version：[Visit](https://web.koodoreader.com)
+
+### Android Version (works with developer version)：[Download](https://koodoreader.com/en/download)
+
+### iOS Version (works with developer version)：[Download](https://koodoreader.com/en/download)
+
+### Install with Scoop:
 
 ```shell
 scoop bucket add extras
 scoop install extras/koodo-reader
 ```
 
-- Install with Homebrew:
+### Install with Homebrew:
 
 ```shell
 brew install --cask koodo-reader
 ```
 
-- Install with Docker:
+### Install with Docker:
+
+If you only need to deploy the web version, simply use the command below.
 
 ```bash
-docker run -d -p 80:80 --name koodo-reader ghcr.io/koodo-reader/koodo-reader:master
+docker run -d \
+  --name koodo-reader \
+  -p 80:80 \
+  -p 8080:8080 \
+  -e ENABLE_HTTP_SERVER=false \
+  -e SERVER_USERNAME=admin \
+  -e SERVER_PASSWORD=securePass123 \
+  -v /path/to/host/uploads:/app/uploads \
+  ghcr.io/koodo-reader/koodo-reader:master
 ```
+
+If you also want to enable the **data source feature**, please:
+
+1. Set **`ENABLE_HTTP_SERVER`** to **`true`**
+2. Change **`SERVER_USERNAME`** and **`SERVER_PASSWORD`** to a secure username and password
+3. Replace **`/path/to/host/uploads`** with the folder where you want to store reading data
+
+Then, select **Docker** as the data source in Koodo Reader.
+
+Data source functionality use port 8080, and web version use port 80 by default. If you want to switch to port 8090, just change **`-p 8080:8080`** to **`-p 8090:8080`**.
+
+If you want to use Docker Secrets to set **`SERVER_PASSWORD`**, please refer to [docker-compose-secret.yml](https://github.com/koodo-reader/koodo-reader/blob/master/docker-compose-secret.yml)
 
 ## Screenshot
 
@@ -163,6 +191,7 @@ Make sure that you have installed yarn and git
 
 | Language(A-Z)   | Code  | View                                                |
 | --------------- | ----- | --------------------------------------------------- |
+| Amharic         | am    | [View](./src/assets/locales/am/translation.json)    |
 | Arabic          | ar    | [View](./src/assets/locales/ar/translation.json)    |
 | Armenian        | hy    | [View](./src/assets/locales/hy/translation.json)    |
 | Bengali         | bn    | [View](./src/assets/locales/bn/translation.json)    |

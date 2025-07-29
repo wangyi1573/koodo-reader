@@ -8,8 +8,14 @@ import SqlUtil from "./sqlUtil";
 import { isElectron } from "react-device-detect";
 import { getStorageLocation } from "../common";
 import { getCloudConfig } from "./common";
+import { getThirdpartyRequest } from "../request/thirdparty";
+import { handleExitApp } from "../request/common";
+import toast from "react-hot-toast";
+import i18n from "../../i18n";
 
 class ConfigUtil {
+  public static syncData: any = {};
+  public static updateData: any = {};
   static async downloadConfig(type: string) {
     if (isElectron) {
       const { ipcRenderer } = window.require("electron");
@@ -65,6 +71,10 @@ class ConfigUtil {
         }
       }
     }
+    if (ConfigService.getReaderConfig("isEnableKoodoSync") === "yes") {
+      this.updateData[type] = JSON.stringify(config);
+      return;
+    }
     if (isElectron) {
       const { ipcRenderer } = window.require("electron");
       let service = ConfigService.getItem("defaultSyncOption");
@@ -96,12 +106,68 @@ class ConfigUtil {
       await syncUtil.uploadFile(type + ".json", "config", configBlob);
     }
   }
+  static async getSyncData(type: string) {
+    let defaultValue = type === "sync" || type === "config" ? "{}" : "[]";
+    if (this.syncData[type]) {
+      return JSON.parse(this.syncData[type] || defaultValue);
+    }
+    let thirdpartyRequest = await getThirdpartyRequest();
+
+    let response = await thirdpartyRequest.getSyncData();
+    if (response.code === 200) {
+      let syncData = response.data;
+      this.syncData = syncData;
+      return JSON.parse(this.syncData[type] || defaultValue);
+    } else if (response.code === 401) {
+      handleExitApp();
+      return null;
+    } else {
+      toast.error(
+        i18n.t("Synchronization failed, error code") + ": " + response.msg
+      );
+      if (response.code === 20004) {
+        toast(
+          i18n.t("Please login again to update your membership on this device")
+        );
+      }
+      return null;
+    }
+  }
+  static async updateSyncData() {
+    let thirdpartyRequest = await getThirdpartyRequest();
+
+    let response = await thirdpartyRequest.updateSyncData(this.updateData);
+    if (response.code === 200) {
+    } else if (response.code === 401) {
+      handleExitApp();
+    } else {
+      toast.error(
+        i18n.t("Synchronization failed, error code") + ": " + response.msg
+      );
+      if (response.code === 20004) {
+        toast(
+          i18n.t("Please login again to update your membership on this device")
+        );
+      }
+    }
+
+    this.syncData = {};
+    this.updateData = {};
+  }
   static async getCloudConfig(type: string) {
+    if (ConfigService.getReaderConfig("isEnableKoodoSync") === "yes") {
+      let config = await this.getSyncData(type);
+      return config || {};
+    }
     let configStr = (await ConfigUtil.downloadConfig(type)) || "{}";
     return JSON.parse(configStr);
   }
 
   static async getCloudDatabase(database: string) {
+    if (ConfigService.getReaderConfig("isEnableKoodoSync") === "yes") {
+      let data = await this.getSyncData(database);
+      return data || [];
+    }
     if (isElectron) {
       const { ipcRenderer } = window.require("electron");
       let service = ConfigService.getItem("defaultSyncOption");
@@ -142,6 +208,17 @@ class ConfigUtil {
     }
   }
   static async uploadDatabase(type: string) {
+    if (ConfigService.getReaderConfig("isEnableKoodoSync") === "yes") {
+      let data = await DatabaseService.getAllRecords(type);
+      if (type === "books") {
+        data = data.map((record) => {
+          record.cover = "";
+          return record;
+        });
+      }
+      this.updateData[type] = JSON.stringify(data);
+      return;
+    }
     if (isElectron) {
       const { ipcRenderer } = window.require("electron");
       await ipcRenderer.invoke("close-database", {

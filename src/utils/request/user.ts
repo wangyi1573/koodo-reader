@@ -1,4 +1,10 @@
-import { isElectron } from "react-device-detect";
+import {
+  browserName,
+  browserVersion,
+  isElectron,
+  osName,
+  osVersion,
+} from "react-device-detect";
 import {
   ConfigService,
   KookitConfig,
@@ -9,7 +15,7 @@ import packageJson from "../../../package.json";
 import toast from "react-hot-toast";
 import i18n from "../../i18n";
 import { handleExitApp } from "./common";
-let userRequest: UserRequest;
+let userRequest: UserRequest | undefined;
 export const loginRegister = async (service: string, code: string) => {
   let deviceName = detectBrowser();
   let userRequest = await getUserRequest();
@@ -54,6 +60,16 @@ export const fetchUserInfo = async () => {
   }
   return response;
 };
+export const updateUserConfig = async (config: any) => {
+  let userRequest = await getUserRequest();
+  let response = await userRequest.updateUserConfig(config);
+  if (response.code === 200) {
+  } else if (response.code === 401) {
+    handleExitApp();
+  } else {
+    toast.error(i18n.t("Setup failed, error code") + ": " + response.msg);
+  }
+};
 export const getUserRequest = async () => {
   if (userRequest) {
     return userRequest;
@@ -61,27 +77,11 @@ export const getUserRequest = async () => {
   userRequest = new UserRequest(TokenService, ConfigService);
   return userRequest;
 };
+export const resetUserRequest = () => {
+  userRequest = undefined;
+};
 export const getOSName = () => {
-  var userAgent = window.navigator.userAgent,
-    platform = window.navigator.platform,
-    macosPlatforms = ["Macintosh", "MacIntel", "MacPPC", "Mac68K"],
-    windowsPlatforms = ["Win32", "Win64", "Windows", "WinCE"],
-    iosPlatforms = ["iPhone", "iPad", "iPod"],
-    os = "Unknown OS";
-
-  if (macosPlatforms.indexOf(platform) !== -1) {
-    os = "Mac OS";
-  } else if (iosPlatforms.indexOf(platform) !== -1) {
-    os = "iOS";
-  } else if (windowsPlatforms.indexOf(platform) !== -1) {
-    os = "Windows";
-  } else if (/Android/.test(userAgent)) {
-    os = "Android";
-  } else if (!os && /Linux/.test(platform)) {
-    os = "Linux";
-  }
-
-  return os;
+  return isElectron ? osName : browserName;
 };
 export const detectBrowser = () => {
   var userAgent = navigator.userAgent;
@@ -105,39 +105,22 @@ export const detectBrowser = () => {
   return "Unknown";
 };
 export const getOsVersionNumber = (): string => {
-  const ua = navigator.userAgent;
-
-  // Windows version
-  if (ua.includes("Windows")) {
-    const version = ua.match(/Windows NT (\d+\.\d+)/)?.[1];
-    switch (version) {
-      case "10.0":
-        return "11"; // Windows 11 reports as 10.0
-      case "6.3":
-        return "8.1";
-      case "6.2":
-        return "8";
-      case "6.1":
-        return "7";
-      default:
-        return version || "";
+  return isElectron ? osVersion : browserVersion;
+};
+export const resetKoodoSync = (service: string) => {
+  if (
+    ConfigService.getItem("defaultSyncOption") &&
+    ConfigService.getItem("defaultSyncOption") !== service
+  ) {
+    if (ConfigService.getReaderConfig("isEnableKoodoSync") === "yes") {
+      updateUserConfig({
+        is_enable_koodo_sync: "no",
+      });
+      setTimeout(() => {
+        updateUserConfig({
+          is_enable_koodo_sync: "yes",
+        });
+      }, 1000);
     }
   }
-
-  // macOS version
-  if (ua.includes("Mac OS X")) {
-    return ua.match(/Mac OS X (\d+[._]\d+)/)?.[1]?.replace("_", ".") || "";
-  }
-
-  // Android version
-  if (ua.includes("Android")) {
-    return ua.match(/Android (\d+(\.\d+)?)/)?.[1] || "";
-  }
-
-  // iOS version
-  if (ua.includes("iPhone OS") || ua.includes("iPad")) {
-    return ua.match(/OS (\d+_\d+)/)?.[1]?.replace("_", ".") || "";
-  }
-
-  return "";
 };

@@ -13,11 +13,11 @@ export function handleOriginalText(originalText: string) {
 export function handleColor(color: number) {
   return { type: "HANDLE_COLOR", payload: color };
 }
+export function handleConvertDialog(isConvertOpen: boolean) {
+  return { type: "HANDLE_CONVERT_DIALOG", payload: isConvertOpen };
+}
 export function handleBookmarks(bookmarks: BookmarkModel[]) {
   return { type: "HANDLE_BOOKMARKS", payload: bookmarks };
-}
-export function handleDigests(digests: NoteModel[]) {
-  return { type: "HANDLE_DIGESTS", payload: digests };
 }
 export function handleHtmlBook(htmlBook: HtmlBookModel) {
   return { type: "HANDLE_HTML_BOOK", payload: htmlBook };
@@ -40,6 +40,9 @@ export function handleReaderMode(readerMode: string) {
 export function handleNavLock(isNavLocked: boolean) {
   return { type: "HANDLE_NAV_LOCK", payload: isNavLocked };
 }
+export function handleSettingLock(isSettingLocked: boolean) {
+  return { type: "HANDLE_SETTING_LOCK", payload: isSettingLocked };
+}
 export function handleFetchNotes() {
   return (dispatch: (arg0: { type: string; payload: NoteModel[] }) => void) => {
     DatabaseService.getAllRecords("notes").then((value) => {
@@ -51,16 +54,6 @@ export function handleFetchNotes() {
       }
       let keyArr = ConfigService.getAllListConfig("deletedBooks");
       dispatch(handleNotes(handleKeyRemove(noteArr, keyArr)));
-      dispatch(
-        handleDigests(
-          handleKeyRemove(
-            noteArr.filter((item: NoteModel) => {
-              return item.notes === "";
-            }),
-            keyArr
-          )
-        )
-      );
     });
   };
 }

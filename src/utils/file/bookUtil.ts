@@ -6,7 +6,7 @@ import { isElectron } from "react-device-detect";
 import localforage from "localforage";
 import BookModel from "../../models/Book";
 import toast from "react-hot-toast";
-import { getStorageLocation } from "../common";
+import { getStorageLocation, showDownloadProgress } from "../common";
 import { Buffer } from "buffer";
 import SyncService from "../storage/syncService";
 import { CommonTool } from "../../assets/lib/kookit-extra-browser.min";
@@ -15,10 +15,11 @@ import Book from "../../models/Book";
 import i18n from "../../i18n";
 import { getCloudConfig } from "./common";
 import CoverUtil from "./coverUtil";
+import { LocalFileManager } from "./localFile";
 declare var window: any;
 
 class BookUtil {
-  static addBook(key: string, format: string, buffer: ArrayBuffer) {
+  static async addBook(key: string, format: string, buffer: ArrayBuffer) {
     // for both original books and cached boks
 
     if (isElectron) {
@@ -38,7 +39,12 @@ class BookUtil {
         throw error;
       }
     } else {
-      localforage.setItem(key, buffer);
+      if (ConfigService.getReaderConfig("isUseLocal") === "yes") {
+        await LocalFileManager.saveFile(key + "." + format, buffer, "book");
+      } else {
+        await localforage.setItem(key, buffer);
+      }
+
       this.uploadBook(key, format);
     }
   }
@@ -63,7 +69,11 @@ class BookUtil {
       });
     } else {
       this.deleteCloudBook(key, format);
-      return localforage.removeItem(key);
+      if (ConfigService.getReaderConfig("isUseLocal") === "yes") {
+        return LocalFileManager.deleteFile(key + "." + format, "book");
+      } else {
+        return localforage.removeItem(key);
+      }
     }
   }
   static isBookExist(key: string, format: string, bookPath: string) {
@@ -88,13 +98,21 @@ class BookUtil {
           resolve(false);
         }
       } else {
-        localforage.getItem(key).then((result) => {
-          if (result) {
-            resolve(true);
-          } else {
-            resolve(false);
-          }
-        });
+        if (ConfigService.getReaderConfig("isUseLocal") === "yes") {
+          LocalFileManager.fileExists(key + "." + format, "book").then(
+            (exists) => {
+              resolve(exists);
+            }
+          );
+        } else {
+          localforage.getItem(key).then((result) => {
+            if (result) {
+              resolve(true);
+            } else {
+              resolve(false);
+            }
+          });
+        }
       }
     });
   }
@@ -134,7 +152,14 @@ class BookUtil {
         }
       });
     } else {
-      return localforage.getItem(key) as Promise<ArrayBuffer>;
+      if (ConfigService.getReaderConfig("isUseLocal") === "yes") {
+        return LocalFileManager.readFile(
+          key + "." + format,
+          "book"
+        ) as Promise<ArrayBuffer>;
+      } else {
+        return localforage.getItem(key) as Promise<ArrayBuffer>;
+      }
     }
   }
   static fetchAllBooks(Books: BookModel[]) {
@@ -149,17 +174,32 @@ class BookUtil {
   }
   static async redirectBook(book: BookModel) {
     if (
-      !(await this.isBookExist(book.key, book.format.toLowerCase(), book.path))
+      !(await this.isBookExist(
+        book.key,
+        book.format.toLowerCase(),
+        book.path
+      )) &&
+      !(await this.isBookExist("cache-" + book.key, "zip", book.path))
     ) {
+      if (!ConfigService.getItem("defaultSyncOption")) {
+        toast(i18n.t("Please add data source in the setting"));
+        return;
+      }
+      toast.loading(i18n.t("Downloading"), {
+        id: "offline-book",
+      });
       if (
-        ConfigService.getItem("defaultSyncOption") &&
         (await TokenService.getToken("is_authed")) === "yes" &&
         (await this.isBookExistInCloud(book.key))
       ) {
-        toast.loading(i18n.t("Make it offline"), {
-          id: "offline-book",
-        });
+        let timer = showDownloadProgress(
+          ConfigService.getItem("defaultSyncOption") || "",
+          "cloud",
+          book.size
+        );
         let result = await this.downloadBook(book.key, book.format);
+        clearInterval(timer);
+        toast.dismiss("offline-book");
         if (ConfigService.getItem("defaultSyncOption") === "adrive") {
           let syncUtil = await SyncService.getSyncUtil();
           let covers = await syncUtil.listFiles("cover");
@@ -170,17 +210,17 @@ class BookUtil {
           }
         }
         if (result) {
-          toast.success(i18n.t("Offline successful"), {
+          toast.success(i18n.t("Download successful"), {
             id: "offline-book",
           });
         } else {
           let result = await this.downloadCacheBook(book.key);
           if (result) {
-            toast.success(i18n.t("Offline successful"), {
+            toast.success(i18n.t("Download successful"), {
               id: "offline-book",
             });
           } else {
-            toast.error(i18n.t("Offline failed"), {
+            toast.error(i18n.t("Download failed"), {
               id: "offline-book",
             });
             if (ConfigService.getItem("defaultSyncOption") === "adrive") {
@@ -197,7 +237,9 @@ class BookUtil {
           }
         }
       } else {
-        toast.error(i18n.t("Book not exists"));
+        toast.error(i18n.t("Book not exists"), {
+          id: "offline-book",
+        });
         return;
       }
     }
@@ -219,6 +261,7 @@ class BookUtil {
           isMergeWord: ConfigService.getReaderConfig("isMergeWord"),
           isAutoFullscreen: ConfigService.getReaderConfig("isAutoFullscreen"),
           isPreventSleep: ConfigService.getReaderConfig("isPreventSleep"),
+          isAlwaysOnTop: ConfigService.getReaderConfig("isAlwaysOnTop"),
         });
       }
     } else {
@@ -299,37 +342,6 @@ class BookUtil {
       return true;
     }
   }
-  static async uploadCacheBook(key: string) {
-    let service = ConfigService.getItem("defaultSyncOption");
-    if (!service) {
-      return;
-    }
-    if (isElectron) {
-      const { ipcRenderer } = window.require("electron");
-
-      let tokenConfig = await getCloudConfig(service);
-
-      await ipcRenderer.invoke("cloud-upload", {
-        ...tokenConfig,
-        fileName: "cache-" + key + ".zip",
-        service: service,
-        type: "book",
-        storagePath: getStorageLocation(),
-      });
-    } else {
-      let syncUtil = await SyncService.getSyncUtil();
-      let bookBuffer: any = await this.fetchBook(
-        "cache-" + key,
-        "zip",
-        true,
-        ""
-      );
-      let bookBlob = new Blob([bookBuffer], {
-        type: "application/zip",
-      });
-      await syncUtil.uploadFile("cache-" + key + ".zip", "book", bookBlob);
-    }
-  }
   static async downloadBook(key: string, format: string) {
     let service = ConfigService.getItem("defaultSyncOption");
     if (!service) {
@@ -362,6 +374,9 @@ class BookUtil {
     }
   }
   static async uploadBook(key: string, format: string) {
+    if (key.startsWith("cache")) {
+      return;
+    }
     let isAuthed = await TokenService.getToken("is_authed");
     if (isAuthed !== "yes") {
       return;
@@ -374,25 +389,36 @@ class BookUtil {
       const { ipcRenderer } = window.require("electron");
 
       let tokenConfig = await getCloudConfig(service);
-
-      await ipcRenderer.invoke("cloud-upload", {
+      let result = await ipcRenderer.invoke("cloud-upload", {
         ...tokenConfig,
         fileName: key + "." + format.toLowerCase(),
         service: service,
         type: "book",
         storagePath: getStorageLocation(),
       });
+      if (!result) {
+        toast.error(i18n.t("Upload failed"), {
+          id: "upload-book",
+        });
+        return;
+      }
     } else {
       let syncUtil = await SyncService.getSyncUtil();
       let bookBuffer: any = await this.fetchBook(key, format, true, "");
       let bookBlob = new Blob([bookBuffer], {
         type: CommonTool.getMimeType(format.toLowerCase()),
       });
-      await syncUtil.uploadFile(
+      let result = await syncUtil.uploadFile(
         key + "." + format.toLowerCase(),
         "book",
         bookBlob
       );
+      if (!result) {
+        toast.error(i18n.t("Upload failed"), {
+          id: "upload-book",
+        });
+        return;
+      }
     }
   }
   static async deleteCloudBook(key: string, format: string) {
@@ -425,8 +451,12 @@ class BookUtil {
   static async deleteCacheBook(key: string) {
     await this.deleteBook("cache-" + key, "zip");
   }
-  static async offlineBook(key: string, _format: string) {
-    await this.downloadCacheBook(key);
+  static async offlineBook(key: string, format: string) {
+    let result = await this.downloadBook(key, format);
+    if (!result) {
+      result = await this.downloadCacheBook(key);
+    }
+    return result;
   }
   static async deleteOfflineBook(key: string) {
     let book: Book = await DatabaseService.getRecord(key, "books");

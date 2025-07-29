@@ -2,7 +2,6 @@ import { ConfigService } from "../../assets/lib/kookit-extra-browser.min";
 const initState = {
   bookmarks: [],
   notes: [],
-  digests: [],
   chapters: null,
   currentChapter: "",
   currentChapterIndex: 0,
@@ -17,7 +16,9 @@ const initState = {
   originalText: "",
   htmlBook: null,
   readerMode: "double",
+  isConvertOpen: false,
   isNavLocked: ConfigService.getReaderConfig("isNavLocked") === "yes",
+  isSettingLocked: ConfigService.getReaderConfig("isSettingLocked") === "yes",
 };
 export function reader(
   state = initState,
@@ -40,6 +41,11 @@ export function reader(
         ...state,
         currentChapter: action.payload,
       };
+    case "HANDLE_CONVERT_DIALOG":
+      return {
+        ...state,
+        isConvertOpen: action.payload,
+      };
     case "HANDLE_CURRENT_CHAPTER_INDEX":
       return {
         ...state,
@@ -54,6 +60,11 @@ export function reader(
       return {
         ...state,
         isNavLocked: action.payload,
+      };
+    case "HANDLE_SETTING_LOCK":
+      return {
+        ...state,
+        isSettingLocked: action.payload,
       };
     case "HANDLE_HTML_BOOK":
       return {
@@ -70,11 +81,6 @@ export function reader(
       return {
         ...state,
         noteKey: action.payload,
-      };
-    case "HANDLE_DIGESTS":
-      return {
-        ...state,
-        digests: action.payload,
       };
     case "HANDLE_SECTION":
       return {

@@ -56,8 +56,9 @@ class SettingDialog extends React.Component<
       isPrecacheBook: ConfigService.getReaderConfig("isPrecacheBook") === "yes",
       appSkin: ConfigService.getReaderConfig("appSkin"),
       isUseBuiltIn: ConfigService.getReaderConfig("isUseBuiltIn") === "yes",
-      isKeepLocal: ConfigService.getReaderConfig("isKeepLocal") === "yes",
       isDisableCrop: ConfigService.getReaderConfig("isDisableCrop") === "yes",
+      isDisablePagination:
+        ConfigService.getReaderConfig("isDisablePagination") === "yes",
       isOverwriteLink:
         ConfigService.getReaderConfig("isOverwriteLink") === "yes",
       isDisablePDFCover:
@@ -125,9 +126,6 @@ class SettingDialog extends React.Component<
     body?.setAttribute("style", "font-family:" + font + "!important");
     ConfigService.setReaderConfig("systemFont", font);
   };
-  handleJump = (url: string) => {
-    openExternalUrl(url);
-  };
   handleSetting = (stateName: string) => {
     this.setState({ [stateName]: !this.state[stateName] } as any);
     ConfigService.setReaderConfig(
@@ -135,6 +133,9 @@ class SettingDialog extends React.Component<
       this.state[stateName] ? "no" : "yes"
     );
     this.handleRest(this.state[stateName]);
+    if (stateName === "isDisablePagination") {
+      reloadManager();
+    }
   };
   handleChangeLocation = async () => {
     const { ipcRenderer } = window.require("electron");
@@ -172,6 +173,12 @@ class SettingDialog extends React.Component<
     window
       .require("electron")
       .ipcRenderer.invoke("reset-reader-position", "ping");
+    toast.success(this.props.t("Reset successful"));
+  };
+  handleResetMainPosition = () => {
+    window
+      .require("electron")
+      .ipcRenderer.invoke("reset-main-position", "ping");
     toast.success(this.props.t("Reset successful"));
   };
   handleTheme = (name: string, index: number) => {
@@ -261,16 +268,6 @@ class SettingDialog extends React.Component<
         <div className="setting-subtitle">
           <Trans>Version</Trans>
           {packageInfo.version}
-          &nbsp;&nbsp;
-          <Trans>
-            {ConfigService.getReaderConfig("appInfo") === "new"
-              ? "New version available"
-              : ConfigService.getReaderConfig("appInfo") === "stable"
-              ? "Latest stable version"
-              : ConfigService.getReaderConfig("appInfo") === "dev"
-              ? "Developer version"
-              : ""}
-          </Trans>
           <div
             className="navigation-navigation"
             style={{ position: "unset", marginTop: "5px" }}
@@ -384,6 +381,18 @@ class SettingDialog extends React.Component<
                       className="change-location-button"
                       onClick={() => {
                         this.handleResetReaderPosition();
+                      }}
+                    >
+                      <Trans>Reset</Trans>
+                    </span>
+                  </div>
+                  <div className="setting-dialog-new-title">
+                    <Trans>Reset main window's position</Trans>
+
+                    <span
+                      className="change-location-button"
+                      onClick={() => {
+                        this.handleResetMainPosition();
                       }}
                     >
                       <Trans>Reset</Trans>

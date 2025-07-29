@@ -1,6 +1,9 @@
 const initState = {
   isBackup: false,
+  isOpenLocalFileDialog: false,
   isOpenTokenDialog: false,
+  isOpenImportDialog: false,
+  isOpenSortShelfDialog: false,
   dataSourceList: [],
   loginOptionList: [],
   defaultSyncOption: "",
@@ -14,6 +17,21 @@ export function backupPage(
       return {
         ...state,
         isBackup: action.payload,
+      };
+    case "HANDLE_LOCAL_FILE_DIALOG":
+      return {
+        ...state,
+        isOpenLocalFileDialog: action.payload,
+      };
+    case "HANDLE_IMPORT_DIALOG":
+      return {
+        ...state,
+        isOpenImportDialog: action.payload,
+      };
+    case "HANDLE_SORT_SHELF_DIALOG":
+      return {
+        ...state,
+        isOpenSortShelfDialog: action.payload,
       };
     case "HANDLE_TOKEN_DIALOG":
       return {

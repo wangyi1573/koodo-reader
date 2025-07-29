@@ -7,13 +7,13 @@ import { Trans } from "react-i18next";
 import { BackupDialogProps, BackupDialogState } from "./interface";
 import Lottie from "react-lottie";
 import animationSuccess from "../../../assets/lotties/success.json";
-import packageInfo from "../../../../package.json";
 import _ from "underscore";
 import toast from "react-hot-toast";
 import { isElectron } from "react-device-detect";
-import { TokenService } from "../../../assets/lib/kookit-extra-browser.min";
-import { checkStableUpdate } from "../../../utils/request/common";
-import DatabaseService from "../../../utils/storage/databaseService";
+import {
+  ConfigService,
+  TokenService,
+} from "../../../assets/lib/kookit-extra-browser.min";
 import { upgradePro } from "../../../utils/file/common";
 const successOptions = {
   loop: false,
@@ -32,15 +32,8 @@ class BackupDialog extends React.Component<
     this.state = {
       isBackup: "",
       currentDrive: "local",
-      isDeveloperVer: false,
       isFinish: false,
     };
-  }
-  async componentDidMount() {
-    let stableLog = await checkStableUpdate();
-    if (packageInfo.version.localeCompare(stableLog.version) > 0) {
-      this.setState({ isDeveloperVer: true });
-    }
   }
   handleClose = () => {
     this.props.handleBackupDialog(false);
@@ -51,9 +44,8 @@ class BackupDialog extends React.Component<
     this.props.handleLoadingDialog(false);
     this.showMessage("Execute successful");
     this.props.handleFetchBooks();
-    let books = await DatabaseService.getAllRecords("books");
     if (this.props.isAuthed) {
-      await upgradePro(books);
+      await upgradePro();
     }
     setTimeout(() => {
       this.props.history.push("/manager/home");
@@ -69,7 +61,7 @@ class BackupDialog extends React.Component<
       if (result) {
         this.handleFinish();
       } else {
-        this.showMessage("Upload failed, check your connection");
+        this.showMessage("Backup failed");
       }
       return;
     }
@@ -164,7 +156,12 @@ class BackupDialog extends React.Component<
                 >
                   {[
                     { label: "Local", value: "local", isPro: false },
-                    ...driveList,
+                    ...driveList.filter((item) => {
+                      if (ConfigService.getItem("serverRegion") === "china") {
+                        return item.isCNAvailable;
+                      }
+                      return true;
+                    }),
                     { label: "Add data source", value: "add", isPro: false },
                   ]
                     .filter(
@@ -213,7 +210,12 @@ class BackupDialog extends React.Component<
                 >
                   {[
                     { label: "Local", value: "local", isPro: false },
-                    ...driveList,
+                    ...driveList.filter((item) => {
+                      if (ConfigService.getItem("serverRegion") === "china") {
+                        return item.isCNAvailable;
+                      }
+                      return true;
+                    }),
                     { label: "Add data source", value: "add", isPro: false },
                   ]
                     .filter(

@@ -24,6 +24,7 @@ class ProgressPanel extends React.Component<
       nextProps.htmlBook.rendition.on("page-changed", async () => {
         await this.handlePageNum(nextProps.htmlBook.rendition);
         this.handleCurrentChapterIndex(nextProps.htmlBook.rendition);
+        this.props.handleFetchPercentage(this.props.currentBook);
       });
       nextProps.htmlBook.rendition.on("rendered", async () => {
         await this.handlePageNum(nextProps.htmlBook.rendition);
@@ -46,7 +47,6 @@ class ProgressPanel extends React.Component<
   };
   async handlePageNum(rendition) {
     let pageInfo = await rendition.getProgress();
-
     this.setState({
       currentPage: pageInfo.currentPage,
       totalPage: pageInfo.totalPage,
@@ -75,7 +75,8 @@ class ProgressPanel extends React.Component<
       return <div className="progress-panel">Loading</div>;
     }
     let readerMode =
-      this.props.currentBook.format === "PDF" ||
+      (this.props.currentBook.format === "PDF" &&
+        ConfigService.getReaderConfig("isConvertPDF") !== "yes") ||
       this.props.currentBook.format.startsWith("CB")
         ? ConfigService.getReaderConfig("pdfReaderMode") || "scroll"
         : ConfigService.getReaderConfig("readerMode") || "double";
@@ -100,7 +101,11 @@ class ProgressPanel extends React.Component<
             value={
               this.state.targetPage
                 ? this.state.targetPage
-                : this.state.currentPage * (readerMode === "double" ? 2 : 1)
+                : this.state.currentPage *
+                  (readerMode === "double" &&
+                  this.props.currentBook.format !== "PDF"
+                    ? 2
+                    : 1)
             }
             onFocus={() => {
               this.setState({ targetPage: " " });
@@ -112,13 +117,13 @@ class ProgressPanel extends React.Component<
             //TODO
             onBlur={(event) => {
               if (event.target.value.trim()) {
-                // this.handleJumpChapter(event);
-                this.setState({ targetPage: "" });
+                this.props.htmlBook.rendition.goToPage(
+                  parseInt(event.target.value.trim())
+                );
               } else {
                 this.setState({ targetPage: "" });
               }
             }}
-            disabled
           />
           <span>/ {this.state.totalPage}</span>
           &nbsp;&nbsp;&nbsp;

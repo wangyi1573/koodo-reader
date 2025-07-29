@@ -6,7 +6,6 @@ export interface PopupMenuProps {
   isOpenMenu: boolean;
   isChangeDirection: boolean;
   menuMode: string;
-  digests: NoteModel[];
   notes: NoteModel[];
   color: number;
   rendition: any;
@@ -15,6 +14,7 @@ export interface PopupMenuProps {
   noteKey: string;
   chapterDocIndex: number;
   chapter: string;
+  readerMode: string;
   handleNoteKey: (key: string) => void;
   t: (title: string) => string;
   handleOpenMenu: (isOpenMenu: boolean) => void;

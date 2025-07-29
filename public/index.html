@@ -5,15 +5,6 @@
     <link rel="icon" href="%PUBLIC_URL%/favicon.png" />
     <link rel="dns-prefetch" href="https://web.koodoreader.com" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="keywords" content="epub reader free koodo" />
-    <meta
-      itemprop="name"
-      content="Koodo Reader - Free Epub Reader for Windows, Mac and Web"
-    />
-    <meta
-      itemprop="description"
-      content="Koodo Reader is an open-source epub reader with backup and restore support, runs on Windows, Mac and Web"
-    />
     <style>
       #root {
         height: 100%;
@@ -41,6 +32,19 @@
       type="text/javascript"
       src="%PUBLIC_URL%/lib/sqljs-wasm/sql-wasm.js"
     ></script>
+    <script
+      type="text/javascript"
+      src="%PUBLIC_URL%/lib/tesseractjs/tesseract.min.js"
+    ></script>
+    <script src="%PUBLIC_URL%/lib/vex-js/vex.combined.min.js"></script>
+    <script>
+      vex.defaultOptions.className = "vex-theme-wireframe";
+    </script>
+    <link rel="stylesheet" href="%PUBLIC_URL%/lib/vex-js/vex.min.css" />
+    <link
+      rel="stylesheet"
+      href="%PUBLIC_URL%/lib/vex-js/vex-theme-wireframe.min.css"
+    />
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

@@ -13,6 +13,7 @@ import {
 import "./aboutDialog.css";
 import DatabaseService from "../../../utils/storage/databaseService";
 import { ConfigService } from "../../../assets/lib/kookit-extra-browser.min";
+import ConfigUtil from "../../../utils/file/configUtil";
 
 declare var window: any;
 class AboutDialog extends React.Component<AboutDialogProps, AboutDialogState> {
@@ -81,16 +82,16 @@ class AboutDialog extends React.Component<AboutDialogProps, AboutDialogState> {
             >
               <Trans>Feedback</Trans>
             </li>
-            {ConfigService.getReaderConfig("isHidePro") !== "yes" && (
-              <li
-                className="sort-by-category-list"
-                onClick={() => {
-                  this.props.handleFeedbackDialog(true);
-                }}
-              >
-                <Trans>Report</Trans>
-              </li>
-            )}
+
+            <li
+              className="sort-by-category-list"
+              onClick={() => {
+                this.props.handleFeedbackDialog(true);
+              }}
+            >
+              <Trans>Report</Trans>
+            </li>
+
             <li
               className="sort-by-category-list"
               onClick={() => {
@@ -145,6 +146,15 @@ class AboutDialog extends React.Component<AboutDialogProps, AboutDialogState> {
                 <Trans>Open console</Trans>
               </li>
             )}
+            <li
+              className="sort-by-category-list"
+              onClick={() => {
+                ConfigUtil.clearConfig("sync");
+                toast.success(this.props.t("Reset successful"));
+              }}
+            >
+              <Trans>Reset sync records</Trans>
+            </li>
             {this.props.isNewWarning && (
               <li
                 className="sort-by-category-list"
@@ -178,7 +188,7 @@ class AboutDialog extends React.Component<AboutDialogProps, AboutDialogState> {
               ? {
                   position: "absolute",
                   left: "665px",
-                  top: "250px",
+                  top: isElectron ? "300px" : "270px",
                 }
               : { display: "none" }
           }

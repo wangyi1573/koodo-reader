@@ -8,6 +8,7 @@ import {
   getAllVoices,
   handleContextMenu,
   sleep,
+  splitSentences,
   WEBSITE_URL,
 } from "../../utils/common";
 import { isElectron } from "react-device-detect";
@@ -16,7 +17,8 @@ import TTSUtil from "../../utils/reader/ttsUtil";
 import "./textToSpeech.css";
 import { openExternalUrl } from "../../utils/common";
 import DatabaseService from "../../utils/storage/databaseService";
-
+declare var window: any;
+declare var global: any;
 class TextToSpeech extends React.Component<
   TextToSpeechProps,
   TextToSpeechState
@@ -44,6 +46,7 @@ class TextToSpeech extends React.Component<
     if (this.state.isAudioOn) {
       window.speechSynthesis && window.speechSynthesis.cancel();
       this.setState({ isAudioOn: false });
+      this.nodeList = [];
     }
     const setSpeech = () => {
       return new Promise((resolve) => {
@@ -69,6 +72,7 @@ class TextToSpeech extends React.Component<
       window.speechSynthesis && window.speechSynthesis.cancel();
       TTSUtil.pauseAudio();
       this.setState({ isAudioOn: false });
+      this.nodeList = [];
     } else {
       if (isElectron) {
         this.customVoices = TTSUtil.getVoiceList(this.props.plugins);
@@ -107,9 +111,13 @@ class TextToSpeech extends React.Component<
     if (ConfigService.getReaderConfig("isSliding") === "yes") {
       await sleep(1000);
     }
-    this.nodeList = this.props.htmlBook.rendition
-      .audioText()
-      .filter((item: string) => item && item.trim());
+    let nodeTextList = (await this.props.htmlBook.rendition.audioText()).filter(
+      (item: string) => item && item.trim()
+    );
+    let rawNodeList = nodeTextList.map((text) => {
+      return splitSentences(text);
+    });
+    this.nodeList = rawNodeList.flat();
     if (this.nodeList.length === 0) {
       await this.props.htmlBook.rendition.next();
       this.nodeList = await this.handleGetText();
@@ -139,8 +147,8 @@ class TextToSpeech extends React.Component<
 
     for (let index = 0; index < this.nodeList.length; index++) {
       let currentText = this.nodeList[index];
-      let style = "background: #f3a6a68c";
-      this.props.htmlBook.rendition.highlightNode(currentText, style);
+      let style = "background: #f3a6a68c;";
+      this.props.htmlBook.rendition.highlightAudioNode(currentText, style);
 
       if (index > TTSUtil.getAudioPaths().length - 1) {
         while (true) {
@@ -153,11 +161,13 @@ class TextToSpeech extends React.Component<
         parseInt(ConfigService.getReaderConfig("voiceIndex")) || 0,
         parseFloat(ConfigService.getReaderConfig("voiceSpeed")) || 1
       );
+      let visibleTextList = await this.props.htmlBook.rendition.visibleText();
+      let lastVisibleTextList = splitSentences(
+        visibleTextList[visibleTextList.length - 1]
+      );
       if (
         this.nodeList[index] ===
-        this.props.htmlBook.rendition.visibleText()[
-          this.props.htmlBook.rendition.visibleText().length - 1
-        ]
+        lastVisibleTextList[lastVisibleTextList.length - 1]
       ) {
         await this.props.htmlBook.rendition.next();
       }
@@ -180,8 +190,8 @@ class TextToSpeech extends React.Component<
   }
   async handleSystemRead(index) {
     let currentText = this.nodeList[index];
-    let style = "background: #f3a6a68c";
-    this.props.htmlBook.rendition.highlightNode(currentText, style);
+    let style = "background: #f3a6a68c;";
+    this.props.htmlBook.rendition.highlightAudioNode(currentText, style);
 
     let res = await this.handleSystemSpeech(
       index,
@@ -190,12 +200,13 @@ class TextToSpeech extends React.Component<
     );
 
     if (res === "start") {
-      index++;
+      let visibleTextList = await this.props.htmlBook.rendition.visibleText();
+      let lastVisibleTextList = splitSentences(
+        visibleTextList[visibleTextList.length - 1]
+      );
       if (
         this.nodeList[index] ===
-        this.props.htmlBook.rendition.visibleText()[
-          this.props.htmlBook.rendition.visibleText().length - 1
-        ]
+        lastVisibleTextList[lastVisibleTextList.length - 1]
       ) {
         await this.props.htmlBook.rendition.next();
       }
@@ -214,6 +225,7 @@ class TextToSpeech extends React.Component<
         await this.handleAudio();
         return;
       }
+      index++;
       await this.handleSystemRead(index);
     } else if (res === "end") {
       return;
@@ -373,7 +385,7 @@ class TextToSpeech extends React.Component<
                       className="lang-setting-option"
                       key={item.value}
                       selected={
-                        item ===
+                        item.value ===
                         (ConfigService.getReaderConfig("voiceSpeed") || "1")
                       }
                     >
@@ -415,6 +427,17 @@ class TextToSpeech extends React.Component<
                       if (!(await checkPlugin(plugin))) {
                         toast.error(this.props.t("Plugin verification failed"));
                         return;
+                      }
+                      if (
+                        plugin.type === "voice" &&
+                        plugin.voiceList.length === 0
+                      ) {
+                        let voiceFunc = plugin.script;
+                        // eslint-disable-next-line no-eval
+                        eval(voiceFunc);
+                        plugin.voiceList = await global.getTTSVoice(
+                          plugin.config
+                        );
                       }
                       if (
                         this.props.plugins.find(

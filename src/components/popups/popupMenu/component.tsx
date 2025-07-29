@@ -3,6 +3,7 @@ import "./popupMenu.css";
 import PopupOption from "../popupOption";
 import { PopupMenuProps, PopupMenuStates } from "./interface";
 import { getIframeDoc } from "../../../utils/reader/docUtil";
+import { ConfigService } from "../../../assets/lib/kookit-extra-browser.min";
 
 class PopupMenu extends React.Component<PopupMenuProps, PopupMenuStates> {
   highlighter: any;
@@ -53,15 +54,24 @@ class PopupMenu extends React.Component<PopupMenuProps, PopupMenuStates> {
   getHtmlPosition(rect: any) {
     let posY = rect.bottom - this.props.rendition.getPageSize().scrollTop;
     let posX = rect.left + rect.width / 2;
-    if (rect.width > this.props.rendition.getPageSize().sectionWidth) {
-      posX =
-        rect.left +
-        rect.width -
-        this.props.rendition.getPageSize().sectionWidth / 2;
+    // fix popup position when crossing pages
+    if (
+      rect.width > this.props.rendition.getPageSize().sectionWidth &&
+      rect.left < 0
+    ) {
+      posX = rect.left + rect.width;
     }
-    if (this.props.rendition.getPageSize().height - rect.height < 188) {
+    if (
+      this.props.rendition.getPageSize().height - rect.height < 188 &&
+      this.props.rendition.getPageSize().height - rect.height > 0
+    ) {
       this.props.handleChangeDirection(true);
       posY = rect.top + 16 + this.props.rendition.getPageSize().top;
+    } else if (
+      rect.height - this.props.rendition.getPageSize().height > 0 &&
+      this.props.readerMode === "scroll"
+    ) {
+      posY = 40;
     } else if (
       posY <
       this.props.rendition.getPageSize().height -
@@ -74,14 +84,42 @@ class PopupMenu extends React.Component<PopupMenuProps, PopupMenuStates> {
       posY = posY - rect.height - 188 + this.props.rendition.getPageSize().top;
     }
     posX = posX - 80 + this.props.rendition.getPageSize().left;
+    if (
+      this.props.currentBook.format === "PDF" &&
+      this.props.readerMode === "double" &&
+      this.props.chapterDocIndex % 2 === 1 &&
+      ConfigService.getReaderConfig("isConvertPDF") !== "yes"
+    ) {
+      posX =
+        posX +
+        this.props.rendition.getPageSize().sectionWidth +
+        this.props.rendition.getPageSize().gap;
+    }
+    if (
+      this.props.currentBook.format === "PDF" &&
+      this.props.readerMode === "scroll" &&
+      ConfigService.getReaderConfig("isConvertPDF") !== "yes"
+    ) {
+      posY =
+        posY +
+        this.props.chapterDocIndex *
+          this.props.rendition.getPageSize().sectionHeight;
+    }
     return { posX, posY } as any;
   }
 
   openMenu = () => {
     this.setState({ deleteKey: "" });
-    let doc = getIframeDoc();
-    if (!doc) return;
-    let sel = doc.getSelection();
+    let docs = getIframeDoc(this.props.currentBook.format);
+    let sel: Selection | null = null;
+    for (let i = 0; i < docs.length; i++) {
+      let doc = docs[i];
+      if (!doc) continue;
+      sel = doc.getSelection();
+      if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+        break;
+      }
+    }
     this.props.handleChangeDirection(false);
     if (this.props.isOpenMenu) {
       this.props.handleMenuMode("");

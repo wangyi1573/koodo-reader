@@ -48,6 +48,7 @@
   - 超文本 (**.html**, **.xml**, **.xhtml**, **.mhtml**, **.htm**)
 - 支持 **Windows**，**macOS**，**Linux** ，**安卓** ，**iOS** 和 **网页版**
 - 利用 **OneDrive**, **Google Drive**, **Dropbox**, **MEGA**, **pCloud**, **阿里云盘**, **Box**, **FTP**, **SFTP**, **WebDAV**, **对象存储** 实现数据多端同步和备份
+- 轻松从 **OneDrive**, **Google Drive**, **MEGA**, **Aliyun Drive**, **Box**, **FTP**, **SFTP**, **WebDAV**, **Object Storage** 导入图书
 - AI 翻译，AI 词典，AI 总结
 - 双页模式，单页模式，滚动模式
 - 听书功能，翻译功能，词典功能，触控屏支持，批量导入图书
@@ -57,30 +58,57 @@
 
 ## 使用方法
 
-- 桌面端：
-  - 稳定版 (推荐下载)：[官网](https://koodoreader.com/zh)
-  - 开发版：[GitHub Release](https://github.com/koodo-reader/koodo-reader/releases/latest) （包含新功能和 bug 修复，但也可能引入更多未知 bug）
-- 网页版：[前往](https://web.koodoreader.com)
-- 安卓版：[前往](https://koodoreader.com/zh/download)
-- iOS 版：[前往](https://koodoreader.com/zh/download)
-- 使用 Scoop 安装：
+### 桌面端：
+
+- 稳定版 (推荐下载)：[官网](https://koodoreader.com/zh)
+- 开发版：[GitHub Release](https://github.com/koodo-reader/koodo-reader/releases/latest) （包含新功能和 bug 修复，但也可能引入更多未知 bug）
+
+### 网页版：[前往](https://web.koodoreader.com)
+
+### 安卓版 (需要配合开发版使用)：[前往](https://koodoreader.com/zh/download)
+
+### iOS 版 (需要配合开发版使用)：[前往](https://koodoreader.com/zh/download)
+
+### 使用 Scoop 安装：
 
 ```shell
 scoop bucket add extras
 scoop install extras/koodo-reader
 ```
 
-- 使用 Homebrew 安装：
+### 使用 Homebrew 安装：
 
 ```shell
 brew install --cask koodo-reader
 ```
 
-- 使用 Docker 安装：
+### 使用 Docker 安装：
+
+如果您只需要部署网页版，直接使用下面的命令即可
 
 ```bash
-docker run -d -p 80:80 --name koodo-reader ghcr.io/koodo-reader/koodo-reader:master
+docker run -d \
+  --name koodo-reader \
+  -p 80:80 \
+  -p 8080:8080 \
+  -e ENABLE_HTTP_SERVER=false \
+  -e SERVER_USERNAME=admin \
+  -e SERVER_PASSWORD=securePass123 \
+  -v /path/to/host/uploads:/app/uploads \
+  ghcr.io/koodo-reader/koodo-reader:master
 ```
+
+如果您还需要启用数据源功能，请作如下修改
+
+1. 将 **`ENABLE_HTTP_SERVER`** 设为 **`true`**
+2. 将 **`SERVER_USERNAME`** 和 **`SERVER_PASSWORD`** 改为您认为安全的用户名和密码
+3. 将 **`/path/to/host/uploads`** 改为您希望用来保存阅读数据的文件夹
+
+部署完成后，在 Koodo Reader 中选择 **Docker** 作为数据源。
+
+数据源功能默认使用 8080 端口，网页版默认使用 80 端口，您也可以使用其他端口。如果您需要使用 8090 端口，则将 **`-p 8080:8080`** 改为 **`-p 8090:8080`**
+
+如果您希望使用 Docker Secrets 来配置服务器密码，请参考[docker-compose-secret.yml](https://github.com/koodo-reader/koodo-reader/blob/master/docker-compose-secret.yml)
 
 ## 截图
 

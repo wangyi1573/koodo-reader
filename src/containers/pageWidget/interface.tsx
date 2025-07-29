@@ -7,6 +7,7 @@ export interface BackgroundProps {
   readerMode: string;
   currentChapterIndex: number;
   isNavLocked: boolean;
+  isSettingLocked: boolean;
   htmlBook: HtmlBookModel;
   isShowBookmark: boolean;
   handleCurrentChapter: (currentChapter: string) => void;
@@ -18,5 +19,4 @@ export interface BackgroundState {
   isHideHeader: boolean;
   prevPage: number;
   nextPage: number;
-  scale: string;
 }

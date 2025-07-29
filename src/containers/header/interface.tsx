@@ -17,8 +17,12 @@ export interface HeaderProps extends RouteComponentProps<any> {
   handleSetting: (isSettingOpen: boolean) => void;
   handleAbout: (isAboutOpen: boolean) => void;
   handleBackupDialog: (isBackup: boolean) => void;
+  handleLocalFileDialog: (isOpenLocalFileDialog: boolean) => void;
+  handleImportDialog: (isOpenImportDialog: boolean) => void;
   handleFeedbackDialog: (isShow: boolean) => void;
   handleFetchAuthed: () => void;
+  handleFetchUserInfo: () => Promise<void>;
+  handleSettingMode: (settingMode: string) => void;
   handleFetchDefaultSyncOption: () => void;
   handleFetchLoginOptionList: () => void;
   handleFetchDataSourceList: () => void;
@@ -27,6 +31,9 @@ export interface HeaderProps extends RouteComponentProps<any> {
   t: (title: string) => string;
   handleFetchNotes: () => void;
   handleFetchBookmarks: () => void;
+  handleCloudSyncFunc: (
+    cloudSyncFunc: () => Promise<false | undefined>
+  ) => void;
 }
 
 export interface HeaderState {
@@ -35,7 +42,6 @@ export interface HeaderState {
   width: number;
   isNewVersion: boolean;
   isDataChange: boolean;
-  isDeveloperVer: boolean;
   isHidePro: boolean;
   isSync: boolean;
 }

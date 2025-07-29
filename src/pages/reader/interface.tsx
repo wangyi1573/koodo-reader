@@ -6,11 +6,14 @@ export interface ReaderProps {
   t: (title: string) => string;
   htmlBook: HtmlBookModel;
   isNavLocked: boolean;
+  isSettingLocked: boolean;
+  isConvertOpen: boolean;
   isSearch: boolean;
   isAuthed: boolean;
   readerMode: string;
   handleFetchNotes: () => void;
   handleReaderMode: (readerMode: string) => void;
+  handleConvertDialog: (isConvertOpen: boolean) => void;
   handleMenuMode: (menuMode: string) => void;
   handleOriginalText: (originalText: string) => void;
   handleFetchBooks: () => void;
@@ -30,5 +33,6 @@ export interface ReaderState {
   hoverPanel: string;
   scale: string;
   isShowScale: boolean;
-  time: number;
+  totalDuration: number;
+  currentDuration: number;
 }

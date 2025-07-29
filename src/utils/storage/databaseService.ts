@@ -3,6 +3,7 @@ import { getStorageLocation } from "../common";
 import localforage from "localforage";
 import SqlUtil from "../file/sqlUtil";
 import { ConfigService } from "../../assets/lib/kookit-extra-browser.min";
+import { LocalFileManager } from "../file/localFile";
 declare var window: any;
 
 class DatabaseService {
@@ -25,8 +26,21 @@ class DatabaseService {
         });
       return records;
     } else {
-      const records = (await localforage.getItem(dbName)) || [];
-      return records;
+      if (ConfigService.getReaderConfig("isUseLocal") === "yes") {
+        let sqlUtil = new SqlUtil();
+        let dbBuffer = await LocalFileManager.readFile(
+          dbName + ".db",
+          "config"
+        );
+        if (!dbBuffer) {
+          return [];
+        }
+        let records = sqlUtil.dbBufferToJson(dbBuffer, dbName);
+        return records;
+      } else {
+        const records = (await localforage.getItem(dbName)) || [];
+        return records;
+      }
     }
   }
   static async saveAllRecords(records: any[], dbName: string, isRecord = true) {
@@ -55,19 +69,25 @@ class DatabaseService {
         }
       }
     } else {
-      await localforage.setItem(dbName, records);
-    }
-    for (let record of records) {
-      if (isRecord) {
-        ConfigService.setSyncRecord(
-          {
-            type: "database",
-            catergory: "sqlite",
-            name: dbName,
-            key: record.key,
-          },
-          { operation: "save", time: Date.now() }
-        );
+      if (ConfigService.getReaderConfig("isUseLocal") === "yes") {
+        let sqlUtil = new SqlUtil();
+        let dbBuffer = await sqlUtil.JsonToDbBuffer(records, dbName);
+        await LocalFileManager.saveFile(dbName + ".db", dbBuffer, "config");
+      } else {
+        await localforage.setItem(dbName, records);
+      }
+      for (let record of records) {
+        if (isRecord) {
+          ConfigService.setSyncRecord(
+            {
+              type: "database",
+              catergory: "sqlite",
+              name: dbName,
+              key: record.key,
+            },
+            { operation: "save", time: Date.now() }
+          );
+        }
       }
     }
   }
@@ -95,7 +115,11 @@ class DatabaseService {
         storagePath: getStorageLocation(),
       });
     } else {
-      await localforage.removeItem(dbName);
+      if (ConfigService.getReaderConfig("isUseLocal") === "yes") {
+        await LocalFileManager.deleteFile(dbName + ".db", "config");
+      } else {
+        await localforage.removeItem(dbName);
+      }
     }
   }
   static async saveRecord(record: any, dbName: string, isRecord = true) {

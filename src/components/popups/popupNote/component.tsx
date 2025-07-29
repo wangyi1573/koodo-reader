@@ -10,7 +10,8 @@ import toast from "react-hot-toast";
 import { getIframeDoc } from "../../../utils/reader/docUtil";
 import { ConfigService } from "../../../assets/lib/kookit-extra-browser.min";
 import DatabaseService from "../../../utils/storage/databaseService";
-
+import ColorOption from "../../colorOption";
+import copy from "copy-text-to-clipboard";
 class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
   constructor(props: PopupNoteProps) {
     super(props);
@@ -28,14 +29,18 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
       });
       textArea.value = this.props.notes[noteIndex].notes;
     } else {
-      let doc = getIframeDoc();
-      if (!doc) {
-        return;
+      let docs = getIframeDoc(this.props.currentBook.format);
+      let text = "";
+      for (let i = 0; i < docs.length; i++) {
+        let doc = docs[i];
+        if (!doc) continue;
+        text = doc.getSelection()?.toString() || "";
+        if (text) {
+          break;
+        }
       }
-      let text = doc.getSelection()?.toString();
-      if (!text) {
-        return;
-      }
+      if (!text) return;
+
       text = text.replace(/\s\s/g, "");
       text = text.replace(/\r/g, "");
       text = text.replace(/\n/g, "");
@@ -56,20 +61,13 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
   async createNote() {
     let notes = (document.querySelector(".editor-box") as HTMLInputElement)
       .value;
-    let cfi = JSON.stringify(
-      ConfigService.getObjectConfig(
-        this.props.currentBook.key,
-        "recordLocation",
-        {}
-      )
-    );
 
     if (this.props.noteKey) {
       this.props.notes.forEach((item) => {
         if (item.key === this.props.noteKey) {
           item.notes = notes;
           item.tag = this.state.tag;
-          item.cfi = cfi;
+          item.color = this.props.color || item.color;
         }
       });
       let newNote = this.props.notes.filter(
@@ -81,18 +79,34 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
         this.props.handleFetchNotes();
         this.props.handleMenuMode("");
         this.props.handleNoteKey("");
+        this.props.handleShowPopupNote(false);
+        if (this.props.htmlBook.rendition) {
+          this.props.htmlBook.rendition.removeOneNote(
+            this.props.noteKey,
+            this.props.chapterDocIndex
+          );
+          this.props.htmlBook.rendition.createOneNote(
+            newNote,
+            this.handleNoteClick
+          );
+        }
       });
     } else {
+      let cfi = JSON.stringify(
+        ConfigService.getObjectConfig(
+          this.props.currentBook.key,
+          "recordLocation",
+          {}
+        )
+      );
       if (
-        ConfigService.getReaderConfig("pdfReaderMode") === "double" &&
-        this.props.currentBook.format === "PDF"
+        this.props.currentBook.format === "PDF" &&
+        ConfigService.getReaderConfig("isConvertPDF") !== "yes"
       ) {
-        toast.error(
-          this.props.t(
-            "PDF files in double page mode does not support note taking yet"
-          )
+        let bookLocation = this.props.htmlBook.rendition.getPositionByChapter(
+          this.props.chapterDocIndex
         );
-        return;
+        cfi = JSON.stringify(bookLocation);
       }
       let bookKey = this.props.currentBook.key;
       let range = JSON.stringify(
@@ -140,6 +154,7 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
       });
     }
   }
+  handleUpdateHighlight = (color: number) => {};
   handleClose = () => {
     if (this.props.noteKey) {
       DatabaseService.deleteRecord(this.props.noteKey, "notes").then(() => {
@@ -147,11 +162,15 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
         this.props.handleMenuMode("");
         this.props.handleFetchNotes();
         this.props.handleNoteKey("");
-        this.props.htmlBook.rendition.removeOneNote(
-          this.props.noteKey,
-          this.props.currentBook.format
-        );
+        if (this.props.htmlBook.rendition) {
+          this.props.htmlBook.rendition.removeOneNote(
+            this.props.noteKey,
+            this.props.chapterDocIndex
+          );
+        }
+
         this.props.handleOpenMenu(false);
+        this.props.handleShowPopupNote(false);
       });
     } else {
       this.props.handleOpenMenu(false);
@@ -161,6 +180,10 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
   };
 
   render() {
+    const PopupProps = {
+      handleDigest: this.handleUpdateHighlight,
+      isEdit: true,
+    };
     let note: NoteModel;
     if (this.props.noteKey) {
       this.props.notes.forEach((item) => {
@@ -188,8 +211,17 @@ class PopupNote extends React.Component<PopupNoteProps, PopupNoteState> {
               }}
             />
           </div>
-
+          <ColorOption {...PopupProps} />
           <div className="note-button-container">
+            <span
+              className="book-manage-title"
+              onClick={() => {
+                copy(this.state.text);
+                toast.success(this.props.t("Copying successful"));
+              }}
+            >
+              <Trans>Copy quotes</Trans>
+            </span>
             <span
               className="book-manage-title"
               onClick={() => {

@@ -12,12 +12,16 @@ import {
   handleFeedbackDialog,
   handleSetting,
   handleBackupDialog,
+  handleLocalFileDialog,
+  handleImportDialog,
   handleFetchNotes,
   handleFetchBookmarks,
   handleEditDialog,
   handleDeleteDialog,
   handleAddDialog,
   handleReadingState,
+  handleShowPopupNote,
+  handleSortShelfDialog,
 } from "../../store/actions";
 import { withTranslation } from "react-i18next";
 
@@ -29,7 +33,6 @@ const mapStateToProps = (state: stateType) => {
   return {
     books: state.manager.books,
     notes: state.reader.notes,
-    digests: state.reader.digests,
     bookmarks: state.reader.bookmarks,
     isReading: state.book.isReading,
     mode: state.sidebar.mode,
@@ -48,8 +51,11 @@ const mapStateToProps = (state: stateType) => {
     isShowLoading: state.manager.isShowLoading,
     isShowNew: state.manager.isShowNew,
     isShowSupport: state.manager.isShowSupport,
-    DetailDialog: state.manager.isDetailDialog,
+    isShowPopupNote: state.manager.isShowPopupNote,
     isBackup: state.backupPage.isBackup,
+    isOpenImportDialog: state.backupPage.isOpenImportDialog,
+    isOpenSortShelfDialog: state.backupPage.isOpenSortShelfDialog,
+    isOpenLocalFileDialog: state.backupPage.isOpenLocalFileDialog,
   };
 };
 const actionCreator = {
@@ -66,11 +72,15 @@ const actionCreator = {
   handleAddDialog,
   handleFeedbackDialog,
   handleDetailDialog,
+  handleSortShelfDialog,
   handleLoadingDialog,
   handleNewDialog,
   handleShowSupport,
   handleBackupDialog,
+  handleLocalFileDialog,
+  handleImportDialog,
   handleReadingState,
+  handleShowPopupNote,
 };
 export default connect(
   mapStateToProps,

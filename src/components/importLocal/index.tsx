@@ -1,6 +1,11 @@
 import "./importLocal.css";
 import { connect } from "react-redux";
-import { handleFetchBooks, handleLoadingDialog } from "../../store/actions";
+import {
+  handleFetchBooks,
+  handleLoadingDialog,
+  handleImportDialog,
+  handleImportBookFunc,
+} from "../../store/actions";
 import { handleReadingBook } from "../../store/actions";
 import { stateType } from "../../store";
 import { withTranslation } from "react-i18next";
@@ -23,6 +28,8 @@ const actionCreator = {
   handleFetchBooks,
   handleReadingBook,
   handleLoadingDialog,
+  handleImportDialog,
+  handleImportBookFunc,
 };
 export default connect(
   mapStateToProps,

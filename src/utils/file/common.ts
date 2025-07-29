@@ -1,8 +1,4 @@
-import {
-  generateSyncRecord,
-  getStorageLocation,
-  preCacheAllBooks,
-} from "../common";
+import { generateSyncRecord, getStorageLocation } from "../common";
 import CoverUtil from "./coverUtil";
 import {
   CommonTool,
@@ -18,6 +14,9 @@ import { decryptToken } from "../request/thirdparty";
 import toast from "react-hot-toast";
 import i18n from "../../i18n";
 declare var window: any;
+
+// File System Access API type declarations
+
 let configCache: any = {};
 export const changePath = async (newPath: string) => {
   if (isFolderContainsFile(newPath)) {
@@ -230,7 +229,10 @@ export const upgradeConfig = (): Boolean => {
     let sortedShelfList =
       ConfigService.getAllListConfig("sortedShelfList") || [];
     if (sortedShelfList.length === 0) {
-      ConfigService.setAllListConfig(Object.keys(shelfList), "sortedShelfList");
+      ConfigService.setAllListConfig(
+        Object.keys(shelfList).filter((item) => item !== "New"),
+        "sortedShelfList"
+      );
     }
 
     //upgrade noteSortCode
@@ -255,8 +257,7 @@ export const upgradeConfig = (): Boolean => {
     return false;
   }
 };
-export const upgradePro = async (books: Book[]) => {
-  await preCacheAllBooks(books);
+export const upgradePro = async () => {
   await generateSyncRecord();
 };
 export const getCloudConfig = async (service: string) => {

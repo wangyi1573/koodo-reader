@@ -13,12 +13,12 @@ import { withTranslation } from "react-i18next";
 
 const mapStateToProps = (state: stateType) => {
   return {
-    digests: state.reader.digests,
     notes: state.reader.notes,
     noteKey: state.reader.noteKey,
     currentBook: state.book.currentBook,
     isOpenMenu: state.viewArea.isOpenMenu,
     menuMode: state.viewArea.menuMode,
+    readerMode: state.reader.readerMode,
     color: state.reader.color,
     isChangeDirection: state.viewArea.isChangeDirection,
   };

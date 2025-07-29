@@ -14,6 +14,7 @@ import { isElectron } from "react-device-detect";
 import {
   getCloudConfig,
   getLastSyncTimeFromConfigJson,
+  removeCloudConfig,
   upgradeConfig,
   upgradePro,
   upgradeStorage,
@@ -27,13 +28,19 @@ import CoverUtil from "../../utils/file/coverUtil";
 import BookUtil from "../../utils/file/bookUtil";
 import {
   addChatBox,
+  checkBrokenData,
+  checkMissingBook,
   getChatLocale,
   getStorageLocation,
   removeChatBox,
+  WEBSITE_URL,
 } from "../../utils/common";
 import { driveList } from "../../constants/driveList";
 import SupportDialog from "../../components/dialogs/supportDialog";
 import SyncService from "../../utils/storage/syncService";
+import { LocalFileManager } from "../../utils/file/localFile";
+import { updateUserConfig } from "../../utils/request/user";
+declare var window: any;
 
 class Header extends React.Component<HeaderProps, HeaderState> {
   timer: any;
@@ -46,7 +53,6 @@ class Header extends React.Component<HeaderProps, HeaderState> {
       isNewVersion: false,
       width: document.body.clientWidth,
       isDataChange: false,
-      isDeveloperVer: false,
       isHidePro: false,
       isSync: false,
     };
@@ -55,7 +61,6 @@ class Header extends React.Component<HeaderProps, HeaderState> {
     this.props.handleFetchAuthed();
     this.props.handleFetchDefaultSyncOption();
     this.props.handleFetchDataSourceList();
-
     if (isElectron) {
       const fs = window.require("fs");
       const path = window.require("path");
@@ -76,10 +81,6 @@ class Header extends React.Component<HeaderProps, HeaderState> {
           "storageLocation",
           ConfigService.getReaderConfig("storageLocation")
         );
-      }
-
-      if (ConfigService.getReaderConfig("appInfo") === "dev") {
-        this.setState({ isDeveloperVer: true });
       }
       if (ConfigService.getReaderConfig("isHidePro") === "yes") {
         this.setState({ isHidePro: true });
@@ -103,6 +104,23 @@ class Header extends React.Component<HeaderProps, HeaderState> {
       }
     } else {
       upgradeConfig();
+      const status = await LocalFileManager.getPermissionStatus();
+      if (
+        !ConfigService.getReaderConfig("isUseLocal") &&
+        LocalFileManager.isSupported()
+      ) {
+        this.props.handleLocalFileDialog(true);
+      } else if (
+        ConfigService.getReaderConfig("isUseLocal") === "yes" &&
+        !status.directoryName
+      ) {
+        this.props.handleLocalFileDialog(true);
+      } else if (
+        ConfigService.getReaderConfig("isUseLocal") === "yes" &&
+        (status.needsReauthorization || !status.hasAccess)
+      ) {
+        this.props.handleLocalFileDialog(true);
+      }
     }
     window.addEventListener("resize", () => {
       this.setState({ width: document.body.clientWidth });
@@ -112,6 +130,22 @@ class Header extends React.Component<HeaderProps, HeaderState> {
       this.props.handleFetchNotes();
       this.props.handleFetchBookmarks();
     });
+    this.props.handleCloudSyncFunc(this.handleCloudSync);
+    document.addEventListener("visibilitychange", async () => {
+      if (document.visibilityState === "visible") {
+        if (ConfigService.getItem("isFinshReading") === "yes") {
+          ConfigService.setItem("isFinshReading", "no");
+          if (
+            ConfigService.getReaderConfig("isDisableAutoSync") !== "yes" &&
+            ConfigService.getItem("defaultSyncOption")
+          ) {
+            await this.props.handleFetchUserInfo();
+            this.setState({ isSync: true });
+            this.handleCloudSync();
+          }
+        }
+      }
+    });
   }
   async UNSAFE_componentWillReceiveProps(
     nextProps: Readonly<HeaderProps>,
@@ -119,32 +153,28 @@ class Header extends React.Component<HeaderProps, HeaderState> {
   ) {
     if (nextProps.isAuthed && nextProps.isAuthed !== this.props.isAuthed) {
       if (isElectron) {
-        window.require("electron").ipcRenderer.invoke("new-chat", {
-          url: "https://dl.koodoreader.com/chat.html",
-          locale: getChatLocale(),
-        });
       } else {
         addChatBox();
       }
-      if (
-        this.props.books &&
-        ConfigService.getReaderConfig("isProUpgraded") !== "yes"
-      ) {
+      if (ConfigService.getReaderConfig("isProUpgraded") !== "yes") {
         try {
-          await upgradePro(this.props.books);
+          ConfigService.setReaderConfig("isProUpgraded", "yes");
+          await upgradePro();
         } catch (error) {
           console.error(error);
         }
-
-        ConfigService.setReaderConfig("isProUpgraded", "yes");
+      }
+      await this.props.handleFetchUserInfo();
+      if (
+        ConfigService.getReaderConfig("isDisableAutoSync") !== "yes" &&
+        ConfigService.getItem("defaultSyncOption")
+      ) {
+        this.setState({ isSync: true });
+        await this.handleCloudSync();
       }
     }
     if (!nextProps.isAuthed && nextProps.isAuthed !== this.props.isAuthed) {
       if (isElectron) {
-        window.require("electron").ipcRenderer.invoke("exit-chat", {
-          url: "https://dl.koodoreader.com/chat.html",
-          locale: getChatLocale(),
-        });
       } else {
         removeChatBox();
       }
@@ -206,27 +236,84 @@ class Header extends React.Component<HeaderProps, HeaderState> {
     this.setState({ isSync: false });
   };
   beforeSync = async () => {
-    if (!this.props.defaultSyncOption) {
+    if (!ConfigService.getItem("defaultSyncOption")) {
       toast.error(this.props.t("Please add data source in the setting"));
       this.setState({ isSync: false });
       return false;
     }
-    let config = await getCloudConfig(this.props.defaultSyncOption);
+    let config = await getCloudConfig(
+      ConfigService.getItem("defaultSyncOption") || ""
+    );
     if (Object.keys(config).length === 0) {
       toast.error(this.props.t("Cannot get sync config"));
       this.setState({ isSync: false });
       return false;
     }
-    toast.loading(
-      this.props.t("Start syncing") +
-        " (" +
+    if (
+      ConfigService.getItem("defaultSyncOption") === "google" &&
+      !config.version
+    ) {
+      let targetDrive = "google";
+      await TokenService.setToken(targetDrive + "_token", "");
+      SyncService.removeSyncUtil(targetDrive);
+      removeCloudConfig(targetDrive);
+      if (isElectron) {
+        const { ipcRenderer } = window.require("electron");
+        await ipcRenderer.invoke("cloud-close", {
+          service: targetDrive,
+        });
+      }
+      ConfigService.deleteListConfig(targetDrive, "dataSourceList");
+      this.props.handleFetchDataSourceList();
+      if (targetDrive === ConfigService.getItem("defaultSyncOption")) {
+        ConfigService.removeItem("defaultSyncOption");
+        this.props.handleFetchDefaultSyncOption();
+      }
+      if (ConfigService.getReaderConfig("isEnableKoodoSync") === "yes") {
+        await updateUserConfig({
+          is_enable_koodo_sync: "no",
+        });
+        setTimeout(() => {
+          updateUserConfig({
+            is_enable_koodo_sync: "yes",
+          });
+        }, 1000);
+      }
+      toast(
         this.props.t(
-          driveList.find((item) => item.value === this.props.defaultSyncOption)
-            ?.label || ""
-        ) +
-        ")",
-      { id: "syncing" }
-    );
+          "In order to let you directly manage your data in Google Drive, we have deprecated the old Google Drive token. Please reauthorize Google Drive in the settings. Your new data will be stored in the root directory of your Google Drive, and you can manage it directly in the Google Drive web interface."
+        ),
+        { duration: 4000 }
+      );
+      this.setState({ isSync: false });
+      return false;
+    }
+    checkMissingBook(this.props.books);
+    let checkResult = await checkBrokenData();
+    if (checkResult) {
+      toast.error(
+        this.props.t(
+          "Broken data detected, please click the setting button to reset the sync records"
+        )
+      );
+      this.setState({ isSync: false });
+      return false;
+    }
+    if (ConfigService.getReaderConfig("isEnableKoodoSync") !== "yes") {
+      toast.loading(
+        this.props.t("Start syncing") +
+          " (" +
+          this.props.t(
+            driveList.find(
+              (item) =>
+                item.value === ConfigService.getItem("defaultSyncOption")
+            )?.label || ""
+          ) +
+          ")",
+        { id: "syncing" }
+      );
+    }
+
     return true;
   };
   getCompareResult = async () => {
@@ -244,7 +331,7 @@ class Header extends React.Component<HeaderProps, HeaderState> {
     let config = {};
     let service = ConfigService.getItem("defaultSyncOption");
     if (!service) {
-      toast.error(this.props.t("Please add data source in the setting"));
+      toast(this.props.t("Please add data source in the setting"));
       this.setState({ isSync: false });
       return false;
     }
@@ -267,41 +354,100 @@ class Header extends React.Component<HeaderProps, HeaderState> {
         let stats = await window
           .require("electron")
           .ipcRenderer.invoke("cloud-stats", config);
-        toast.loading(
-          this.props.t("Start Transfering Data") +
-            " (" +
-            stats.completed +
-            "/" +
-            stats.total +
-            ")",
-          {
-            id: "syncing",
+        if (stats.total > 0) {
+          if (stats.hasFailedTasks) {
+            toast.error(
+              this.props.t(
+                "Tasks failed after multiple retries, please check the network connection"
+              ),
+              {
+                id: "syncing",
+              }
+            );
+            clearInterval(this.timer);
+            this.setState({ isSync: false });
+            return;
+          } else {
+            toast.loading(
+              this.props.t("Start Transfering Data") +
+                " (" +
+                stats.completed +
+                "/" +
+                stats.total +
+                ")" +
+                " (" +
+                this.props.t(
+                  driveList.find(
+                    (item) =>
+                      item.value === ConfigService.getItem("defaultSyncOption")
+                  )?.label || ""
+                ) +
+                ")",
+              {
+                id: "syncing",
+              }
+            );
           }
-        );
+        }
       } else {
         let syncUtil = await SyncService.getSyncUtil();
         let stats = await syncUtil.getStats();
-        toast.loading(
-          this.props.t("Start Transfering Data") +
-            " (" +
-            stats.completed +
-            "/" +
-            stats.total +
-            ")",
-          {
-            id: "syncing",
+        if (stats.total > 0) {
+          if (stats.hasFailedTasks) {
+            toast.error(
+              this.props.t(
+                "Tasks failed after multiple retries, please check the network connection"
+              ),
+              {
+                id: "syncing",
+              }
+            );
+            clearInterval(this.timer);
+            this.setState({ isSync: false });
+            return;
           }
-        );
+          toast.loading(
+            this.props.t("Start Transfering Data") +
+              " (" +
+              stats.completed +
+              "/" +
+              stats.total +
+              ")" +
+              " (" +
+              this.props.t(
+                driveList.find(
+                  (item) =>
+                    item.value === ConfigService.getItem("defaultSyncOption")
+                )?.label || ""
+              ) +
+              ")",
+            {
+              id: "syncing",
+            }
+          );
+        }
       }
     }, 1000);
-    let res = await this.beforeSync();
-    if (!res) {
+    try {
+      let res = await this.beforeSync();
+      if (!res) {
+        this.setState({ isSync: false });
+        clearInterval(this.timer);
+        return;
+      }
+      let compareResult = await this.getCompareResult();
+      await this.handleSync(compareResult);
+      clearInterval(this.timer);
+      this.setState({ isSync: false });
+    } catch (error) {
+      console.error(error);
+      toast.error(this.props.t("Sync failed"), {
+        id: "syncing",
+      });
+      clearInterval(this.timer);
+      this.setState({ isSync: false });
       return;
     }
-    let compareResult = await this.getCompareResult();
-
-    await this.handleSync(compareResult);
-    this.setState({ isSync: false });
   };
   handleSuccess = async () => {
     this.props.handleFetchBooks();
@@ -310,16 +456,27 @@ class Header extends React.Component<HeaderProps, HeaderState> {
     toast.success(this.props.t("Synchronisation successful"), {
       id: "syncing",
     });
-    if (this.props.defaultSyncOption === "adrive") {
+    setTimeout(() => {
+      toast.dismiss("syncing");
+    }, 1000);
+    if (
+      ConfigService.getItem("defaultSyncOption") === "adrive" &&
+      ConfigService.getReaderConfig("hasShowAliyunWarning") !== "yes"
+    ) {
+      ConfigService.setReaderConfig("hasShowAliyunWarning", "yes");
       toast.success(
         this.props.t(
-          "Due to Aliyun Drive's stringent concurrency restrictions, we have bypassed the synchronization of books and covers. Please manually download the books by clicking on them"
+          "We have bypassed the synchronization of book cover for Aliyun Drive, covers will be downloaded automatically when you open the book next time."
         ),
         {
           duration: 4000,
         }
       );
     }
+    if (ConfigService.getReaderConfig("isEnableKoodoSync") === "yes") {
+      ConfigUtil.updateSyncData();
+    }
+    //when book is empty, need to refresh the book list
     setTimeout(() => {
       this.props.history.push("/manager/home");
     }, 1000);
@@ -349,6 +506,7 @@ class Header extends React.Component<HeaderProps, HeaderState> {
       toast.error(this.props.t("Sync failed"), {
         id: "syncing",
       });
+      clearInterval(this.timer);
       return;
     }
   };
@@ -378,6 +536,31 @@ class Header extends React.Component<HeaderProps, HeaderState> {
         className="header"
         style={this.props.isCollapsed ? { marginLeft: "40px" } : {}}
       >
+        {isElectron && this.props.isAuthed && (
+          <div
+            className="header-chat-widget"
+            onClick={() => {
+              window.require("electron").ipcRenderer.invoke("new-chat", {
+                url:
+                  WEBSITE_URL +
+                  (ConfigService.getReaderConfig("lang").startsWith("zh")
+                    ? "/zh/faq"
+                    : "/en/faq"),
+                locale: getChatLocale(),
+              });
+            }}
+          >
+            <img
+              src={require("../../assets/images/chat-widget.png")}
+              alt="logo"
+              className="login-mobile-qr"
+              style={{
+                width: "100%",
+                height: "100%",
+              }}
+            />
+          </div>
+        )}
         <div
           className="header-search-container"
           style={this.props.isCollapsed ? { width: "369px" } : {}}
@@ -451,15 +634,17 @@ class Header extends React.Component<HeaderProps, HeaderState> {
           <div
             className="setting-icon-container"
             onClick={async () => {
-              this.setState({ isSync: true });
               if (!isElectron && !this.props.isAuthed) {
                 toast(
                   this.props.t(
                     "This feature is not available in the free version"
                   )
                 );
+                return;
               }
+              this.setState({ isSync: true });
               if (this.props.isAuthed) {
+                await this.props.handleFetchUserInfo();
                 this.handleCloudSync();
               } else {
                 this.handleLocalSync();
@@ -490,36 +675,30 @@ class Header extends React.Component<HeaderProps, HeaderState> {
             <span
               style={{ textDecoration: "underline" }}
               onClick={() => {
+                if (
+                  window.location.href.startsWith("http") &&
+                  window.location.hostname !== "web.koodoreader.com"
+                ) {
+                  this.props.handleSetting(true);
+                  this.props.handleSettingMode("account");
+                  return;
+                }
                 this.props.history.push("/login");
               }}
             >
               <Trans>Pro version</Trans>
               <span> </span>
             </span>
-            {this.state.isDeveloperVer && (
-              <span
-                className="icon-close icon-pro-close"
-                onClick={() => {
-                  ConfigService.setReaderConfig("isHidePro", "yes");
-                  this.setState({ isHidePro: true });
-                }}
-              ></span>
-            )}
+
+            <span
+              className="icon-close icon-pro-close"
+              onClick={() => {
+                ConfigService.setReaderConfig("isHidePro", "yes");
+                this.setState({ isHidePro: true });
+              }}
+            ></span>
           </div>
         ) : null}
-        {this.state.isDeveloperVer &&
-          this.state.isHidePro &&
-          !this.props.isAuthed && (
-            <div
-              className="header-report-container"
-              style={{ textDecoration: "underline" }}
-              onClick={() => {
-                this.props.handleFeedbackDialog(true);
-              }}
-            >
-              <Trans>Report</Trans>
-            </div>
-          )}
 
         <ImportLocal
           {...{
