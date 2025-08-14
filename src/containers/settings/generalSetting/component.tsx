@@ -35,8 +35,6 @@ class GeneralSetting extends React.Component<
       isLemmatizeWord:
         ConfigService.getReaderConfig("isLemmatizeWord") === "yes",
       isOpenBook: ConfigService.getReaderConfig("isOpenBook") === "yes",
-      isExpandContent:
-        ConfigService.getReaderConfig("isExpandContent") === "yes",
       isDisablePopup: ConfigService.getReaderConfig("isDisablePopup") === "yes",
       isDisableTrashBin:
         ConfigService.getReaderConfig("isDisableTrashBin") === "yes",
@@ -46,6 +44,8 @@ class GeneralSetting extends React.Component<
         ConfigService.getReaderConfig("isHideShelfBook") === "yes",
       isPreventSleep: ConfigService.getReaderConfig("isPreventSleep") === "yes",
       isAlwaysOnTop: ConfigService.getReaderConfig("isAlwaysOnTop") === "yes",
+      isAutoMaximizeWin:
+        ConfigService.getReaderConfig("isAutoMaximizeWin") === "yes",
       isAutoLaunch: ConfigService.getReaderConfig("isAutoLaunch") === "yes",
       isOpenInMain: ConfigService.getReaderConfig("isOpenInMain") === "yes",
       isDisableUpdate:
@@ -186,6 +186,13 @@ class GeneralSetting extends React.Component<
     });
     this.handleSetting("isAlwaysOnTop");
   };
+  handleMaximizeWin = () => {
+    const { ipcRenderer } = window.require("electron");
+    ipcRenderer.invoke("set-auto-maximize", {
+      isAutoMaximizeWin: this.state.isAutoMaximizeWin ? "no" : "yes",
+    });
+    this.handleSetting("isAutoMaximizeWin");
+  };
   handleAutoLaunch = () => {
     const { ipcRenderer } = window.require("electron");
     ipcRenderer.invoke("toggle-auto-launch", {
@@ -217,6 +224,9 @@ class GeneralSetting extends React.Component<
                     break;
                   case "isAlwaysOnTop":
                     this.handleAlwaysOnTop();
+                    break;
+                  case "isAutoMaximizeWin":
+                    this.handleMaximizeWin();
                     break;
                   case "isAutoLaunch":
                     this.handleAutoLaunch();
@@ -251,6 +261,12 @@ class GeneralSetting extends React.Component<
       );
     });
   };
+  handleResetMainPosition = () => {
+    window
+      .require("electron")
+      .ipcRenderer.invoke("reset-main-position", "ping");
+    toast.success(this.props.t("Reset successful"));
+  };
   render() {
     return (
       <>
@@ -265,8 +281,11 @@ class GeneralSetting extends React.Component<
                 <span
                   className="change-location-button"
                   onClick={() => {
-                    const { shell } = window.require("electron");
-                    shell.openPath(this.state.storageLocation);
+                    const { ipcRenderer } = window.require("electron");
+                    ipcRenderer.invoke("open-explorer-folder", {
+                      path: this.state.storageLocation,
+                      isFolder: true,
+                    });
                   }}
                   style={{ marginRight: "10px" }}
                 >
@@ -303,8 +322,11 @@ class GeneralSetting extends React.Component<
                   <span
                     className="change-location-button"
                     onClick={() => {
-                      const { shell } = window.require("electron");
-                      shell.openPath(this.state.storageLocation);
+                      const { ipcRenderer } = window.require("electron");
+                      ipcRenderer.invoke("open-explorer-folder", {
+                        path: this.state.storageLocation,
+                        isFolder: true,
+                      });
                     }}
                     style={{ marginRight: "10px" }}
                   >
@@ -333,7 +355,18 @@ class GeneralSetting extends React.Component<
             </div>
           </>
         )}
+        <div className="setting-dialog-new-title">
+          <Trans>Reset main window's position</Trans>
 
+          <span
+            className="change-location-button"
+            onClick={() => {
+              this.handleResetMainPosition();
+            }}
+          >
+            <Trans>Reset</Trans>
+          </span>
+        </div>
         <div className="setting-dialog-new-title">
           <Trans>Select update channel</Trans>
           <select

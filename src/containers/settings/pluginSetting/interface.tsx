@@ -39,7 +39,6 @@ export interface SettingInfoState {
   appSkin: string;
   storageLocation: string;
   isOpenBook: boolean;
-  isExpandContent: boolean;
   isDisablePopup: boolean;
   isDisableTrashBin: boolean;
   isDeleteShelfBook: boolean;
@@ -48,7 +47,6 @@ export interface SettingInfoState {
   isPrecacheBook: boolean;
   isUseBuiltIn: boolean;
   isDisablePDFCover: boolean;
-  isAutoFullscreen: boolean;
   isHideShelfBook: boolean;
   isPreventAdd: boolean;
   isLemmatizeWord: boolean;

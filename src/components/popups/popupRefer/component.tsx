@@ -54,6 +54,15 @@ class PopupRefer extends React.Component<PopupReferProps, PopupReferStates> {
 
     if (href && href.startsWith("kindle:")) {
       let result = await this.props.rendition.resolveHref(href);
+      if (!result) {
+        let chapterInfo = rendition.resolveChapter(href);
+        await rendition.goToChapter(
+          chapterInfo.index,
+          chapterInfo.href,
+          chapterInfo.label
+        );
+        return true;
+      }
       href = "#" + result;
     }
 
@@ -71,8 +80,20 @@ class PopupRefer extends React.Component<PopupReferProps, PopupReferStates> {
         let id = href.split("#").reverse()[0];
         let node = doc.body.querySelector("#" + CSS.escape(id));
         if (!node) {
+          if (href.indexOf("filepos") > -1) {
+            let chapterInfo = rendition.resolveChapter(href);
+            await rendition.goToChapter(
+              chapterInfo.index,
+              chapterInfo.href,
+              chapterInfo.label
+            );
+            return true;
+          }
           //can't find the node, go to href
           if (href.indexOf("#") !== 0) {
+            while (href.startsWith(".")) {
+              href = href.substring(1);
+            }
             let chapterInfo = rendition.resolveChapter(href.split("#")[0]);
             await rendition.goToChapter(
               chapterInfo.index,
@@ -80,17 +101,32 @@ class PopupRefer extends React.Component<PopupReferProps, PopupReferStates> {
               chapterInfo.label
             );
           }
+          node = doc.body.querySelector("#" + CSS.escape(id));
+          if (!node) {
+            return false;
+          }
+          this.setState({
+            isJump: true,
+            returnPosition: ConfigService.getObjectConfig(
+              this.props.currentBook.key,
+              "recordLocation",
+              {}
+            ),
+          });
           await rendition.goToNode(
-            doc.body.querySelector("#" + CSS.escape(id)) || doc.body
+            doc.body.querySelector("#" + CSS.escape(id))
           );
-          return true;
         }
-
         if (
-          node.textContent.trim() === event.target.textContent.trim() ||
-          !node.textContent.trim()
+          (node.textContent.trim() === event.target.textContent.trim() ||
+            !node.textContent.trim()) &&
+          node.parentElement
         ) {
-          node = node.parentElement;
+          if (node.parentElement.tagName !== "BODY") {
+            node = node.parentElement;
+          } else {
+            return false;
+          }
         }
         let htmlContent = node.innerHTML;
         //将html代码中的img标签由blob转换为base64
@@ -122,11 +158,10 @@ class PopupRefer extends React.Component<PopupReferProps, PopupReferStates> {
           }
           return doc.body.innerHTML;
         };
-
         htmlContent = await processHtml(htmlContent);
         this.setState(
           {
-            rect: event.target.getBoundingClientRect(),
+            rect: this.getTargetRect(event.target),
             footnote: htmlContent,
             isOpenMenu: true,
           },
@@ -163,6 +198,17 @@ class PopupRefer extends React.Component<PopupReferProps, PopupReferStates> {
       return true;
     }
     return false;
+  };
+  getTargetRect = (element: any) => {
+    let rect = element.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      // If the element has no size, try to get the parent element's rect
+      if (element.parentElement) {
+        return this.getTargetRect(element.parentElement);
+      }
+      return rect;
+    }
+    return rect;
   };
 
   showMenu = () => {

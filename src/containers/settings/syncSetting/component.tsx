@@ -19,6 +19,7 @@ import { getStorageLocation } from "../../../utils/common";
 import { driveInputConfig, driveList } from "../../../constants/driveList";
 import {
   ConfigService,
+  KookitConfig,
   SyncUtil,
   TokenService,
 } from "../../../assets/lib/kookit-extra-browser.min";
@@ -33,38 +34,12 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
   constructor(props: SettingInfoProps) {
     super(props);
     this.state = {
-      isTouch: ConfigService.getReaderConfig("isTouch") === "yes",
-      isMergeWord: ConfigService.getReaderConfig("isMergeWord") === "yes",
-      isPreventTrigger:
-        ConfigService.getReaderConfig("isPreventTrigger") === "yes",
-      isAutoFullscreen:
-        ConfigService.getReaderConfig("isAutoFullscreen") === "yes",
-      isPreventAdd: ConfigService.getReaderConfig("isPreventAdd") === "yes",
-      isLemmatizeWord:
-        ConfigService.getReaderConfig("isLemmatizeWord") === "yes",
-      isOpenBook: ConfigService.getReaderConfig("isOpenBook") === "yes",
-      isExpandContent:
-        ConfigService.getReaderConfig("isExpandContent") === "yes",
-      isDisablePopup: ConfigService.getReaderConfig("isDisablePopup") === "yes",
-      isDisableTrashBin:
-        ConfigService.getReaderConfig("isDisableTrashBin") === "yes",
-      isDeleteShelfBook:
-        ConfigService.getReaderConfig("isDeleteShelfBook") === "yes",
-      isHideShelfBook:
-        ConfigService.getReaderConfig("isHideShelfBook") === "yes",
-      isOpenInMain: ConfigService.getReaderConfig("isOpenInMain") === "yes",
-      isDisableUpdate:
-        ConfigService.getReaderConfig("isDisableUpdate") === "yes",
-      isPrecacheBook: ConfigService.getReaderConfig("isPrecacheBook") === "yes",
       appSkin: ConfigService.getReaderConfig("appSkin"),
-      isUseBuiltIn: ConfigService.getReaderConfig("isUseBuiltIn") === "yes",
       isKeepLocal: ConfigService.getReaderConfig("isKeepLocal") === "yes",
       isDisableAutoSync:
         ConfigService.getReaderConfig("isDisableAutoSync") === "yes",
       isEnableKoodoSync:
         ConfigService.getReaderConfig("isEnableKoodoSync") === "yes",
-      isDisablePDFCover:
-        ConfigService.getReaderConfig("isDisablePDFCover") === "yes",
       currentThemeIndex: _.findLastIndex(themeList, {
         name: ConfigService.getReaderConfig("themeColor"),
       }),
@@ -126,7 +101,16 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
       settingDrive === "google_exp" ||
       settingDrive === "microsoft"
     ) {
-      this.handleJump(new SyncUtil(settingDrive, {}).getAuthUrl());
+      this.handleJump(
+        new SyncUtil(settingDrive, {}).getAuthUrl(
+          ConfigService.getItem("serverRegion") === "china" &&
+            (settingDrive === "microsoft" ||
+              settingDrive === "microsoft_exp" ||
+              settingDrive === "adrive")
+            ? KookitConfig.ThirdpartyConfig.cnCallbackUrl
+            : KookitConfig.ThirdpartyConfig.callbackUrl
+        )
+      );
     }
   };
   handleDeleteDataSource = async (event: any) => {
@@ -444,7 +428,14 @@ class SyncSetting extends React.Component<SettingInfoProps, SettingInfoState> {
                     style={{ marginRight: "10px" }}
                     onClick={async () => {
                       this.handleJump(
-                        new SyncUtil(this.props.settingDrive, {}).getAuthUrl()
+                        new SyncUtil(this.props.settingDrive, {}).getAuthUrl(
+                          ConfigService.getItem("serverRegion") === "china" &&
+                            (this.props.settingDrive === "microsoft" ||
+                              this.props.settingDrive === "microsoft_exp" ||
+                              this.props.settingDrive === "adrive")
+                            ? KookitConfig.ThirdpartyConfig.cnCallbackUrl
+                            : KookitConfig.ThirdpartyConfig.callbackUrl
+                        )
                       );
                     }}
                   >

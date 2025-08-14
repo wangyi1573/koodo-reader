@@ -145,6 +145,9 @@ const createMainWin = () => {
   if (store.get("isAlwaysOnTop") === "yes") {
     mainWin.setAlwaysOnTop(true);
   }
+  if (store.get("isAutoMaximizeWin") === "yes") {
+    mainWin.maximize();
+  }
 
   if (!isDev) {
     Menu.setApplicationMenu(null);
@@ -156,7 +159,7 @@ const createMainWin = () => {
   mainWin.loadURL(urlLocation);
 
   mainWin.on("close", () => {
-    if (!mainWin.isDestroyed()) {
+    if (mainWin && !mainWin.isDestroyed()) {
       let bounds = mainWin.getBounds();
       if (bounds.width > 0 && bounds.height > 0) {
         store.set({
@@ -230,7 +233,7 @@ const createMainWin = () => {
       readerWindow.setAlwaysOnTop(true);
     }
     readerWindow.on("close", (event) => {
-      if (!readerWindow.isDestroyed()) {
+      if (readerWindow && !readerWindow.isDestroyed()) {
         let bounds = readerWindow.getBounds();
         if (bounds.width > 0 && bounds.height > 0) {
           store.set({
@@ -296,9 +299,15 @@ const createMainWin = () => {
     return result;
   });
   ipcMain.handle("cloud-delete", async (event, config) => {
-    let syncUtil = await getSyncUtil(config, config.isUseCache);
-    let result = await syncUtil.deleteFile(config.fileName, config.type);
-    return result;
+    try {
+      let syncUtil = await getSyncUtil(config, config.isUseCache);
+      let result = await syncUtil.deleteFile(config.fileName, config.type);
+      return result;
+    } catch (error) {
+      console.error("Error deleting file:", error);
+    }
+    return false;
+
   });
 
   ipcMain.handle("cloud-list", async (event, config) => {
@@ -476,10 +485,39 @@ const createMainWin = () => {
     }
     return "pong";
   })
+  ipcMain.handle("set-auto-maximize", async (event, config) => {
+    store.set("isAutoMaximizeWin", config.isAutoMaximizeWin);
+    if (mainWin && !mainWin.isDestroyed()) {
+      if (config.isAutoMaximizeWin === "yes") {
+        mainWin.maximize();
+      } else {
+        mainWin.unmaximize();
+      }
+
+    }
+    if (readerWindow && !readerWindow.isDestroyed()) {
+      if (config.isAlwaysOnTop === "yes") {
+        readerWindow.setAlwaysOnTop(true);
+      } else {
+        readerWindow.setAlwaysOnTop(false);
+      }
+    }
+    return "pong";
+  })
   ipcMain.handle("toggle-auto-launch", async (event, config) => {
     app.setLoginItemSettings({
       openAtLogin: config.isAutoLaunch === "yes"
     })
+    return "pong";
+  })
+  ipcMain.handle("open-explorer-folder", async (event, config) => {
+    const { shell } = require("electron");
+    if (config.isFolder) {
+      shell.openPath(config.path);
+    } else {
+      shell.showItemInFolder(config.path);
+    }
+
     return "pong";
   })
 
@@ -511,17 +549,7 @@ const createMainWin = () => {
       mainWin.reload();
     }
   });
-  ipcMain.handle("focus-on-main", (event, arg) => {
-    if (mainWin) {
-      if (!mainWin.isVisible()) mainWin.show();
-      mainWin.focus();
-    }
-  });
-  ipcMain.handle("create-new-main", (event, arg) => {
-    if (!mainWin) {
-      createMainWin();
-    }
-  });
+
   ipcMain.handle("new-chat", (event, config) => {
     if (!chatWindow && mainWin) {
       let bounds = mainWin.getBounds();
@@ -728,6 +756,7 @@ const createMainWin = () => {
     filePath = null;
   });
 };
+
 
 app.on("ready", () => {
   createMainWin();

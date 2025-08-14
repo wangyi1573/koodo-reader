@@ -37,6 +37,12 @@ export const generalSettingList = [
   },
   {
     isElectron: true,
+    title: "Auto maximize main window",
+    desc: "Main window will be maximized to fit the screen when launching",
+    propName: "isAutoMaximizeWin",
+  },
+  {
+    isElectron: true,
     title: "Automatically launch on system startup",
     propName: "isAutoLaunch",
   },
@@ -133,6 +139,7 @@ export const readingSettingList = [
     desc: "The book that you read from last time will be open automatically when launching",
     propName: "isOpenBook",
   },
+
   {
     isElectron: true,
     title: "Auto open book in full screen",
@@ -141,15 +148,15 @@ export const readingSettingList = [
   },
   {
     isElectron: false,
-    title: "Auto expand content",
-    desc: "All the folded content will be expanded in the navigation panel",
-    propName: "isExpandContent",
-  },
-  {
-    isElectron: false,
     title: "No popup when selecting texts",
     desc: "Turn it on when you want Koodo to work with other third-party translation service, right clicking on the selected text will trigger popup again",
     propName: "isDisablePopup",
+  },
+  {
+    isElectron: false,
+    title: "Disable auto scroll to next or previous chapter",
+    desc: "Disable auto scroll to next or previous chapter when reaching the end of the current chapter",
+    propName: "isDisableAutoScroll",
   },
   {
     isElectron: false,

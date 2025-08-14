@@ -1,7 +1,7 @@
 {
   "name": "koodo-reader",
   "main": "main.js",
-  "version": "2.0.8",
+  "version": "2.1.1",
   "description": "Koodo Reader is a cross-platform ebook reader",
   "author": {
     "name": "App by Troye",
@@ -116,7 +116,7 @@
   "build": {
     "appId": "xyz.960960.koodo",
     "productName": "Koodo Reader",
-    "copyright": "Copyright (c) 2020-2024 ${author}",
+    "copyright": "Copyright (c) 2020-2025 ${author}",
     "files": [
       "build/**/*",
       "node_modules/**/*",
@@ -250,9 +250,7 @@
         {
           "target": "zip",
           "arch": [
-            "x64",
-            "ia32",
-            "arm64"
+            "x64"
           ]
         },
         {
@@ -278,7 +276,6 @@
         {
           "target": "deb",
           "arch": [
-            "arm64",
             "x64"
           ]
         },
@@ -291,7 +288,6 @@
         {
           "target": "AppImage",
           "arch": [
-            "arm64",
             "x64"
           ]
         }
@@ -299,10 +295,10 @@
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "portable": {
-      "artifactName": "${productName}-${version}-Portable.${ext}"
+      "artifactName": "${productName}-${version}-${arch}-Portable.${ext}"
     },
     "nsis": {
-      "artifactName": "${productName}-${version}.${ext}",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "include": "assets/windows/installer.nsh"
